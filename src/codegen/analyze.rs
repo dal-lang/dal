@@ -3,6 +3,5 @@
 // This file is part of the dal.
 // See the LICENSE file for licensing information.
 
-pub mod ast;
-pub mod parser;
-pub mod tokenizer;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportTableEntry {}

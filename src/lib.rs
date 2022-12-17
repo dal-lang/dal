@@ -3,4 +3,5 @@
 // This file is part of the dal.
 // See the LICENSE file for licensing information.
 
+pub mod codegen;
 pub mod compiler;
