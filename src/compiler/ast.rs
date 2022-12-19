@@ -285,6 +285,7 @@ pub struct AsmExpr {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NodeData {
+    None,
     Root(RefCell<NodeRoot>),
     FnProto(RefCell<NodeFnProto>),
     FnDef(RefCell<NodeFnDef>),

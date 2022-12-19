@@ -43,6 +43,7 @@ pub enum TokenKind {
     KwPub,
     KwReturn,
     KwTrue,
+    KwVoid,
     LBrace,
     LBracket,
     LParen,
@@ -52,6 +53,7 @@ pub enum TokenKind {
     RBrace,
     RBracket,
     RParen,
+    Semicolon,
     Slash,
     Star,
     StrLit,
@@ -96,6 +98,7 @@ impl TokenKind {
             TokenKind::KwPub => "KwPub",
             TokenKind::KwReturn => "KwReturn",
             TokenKind::KwTrue => "KwTrue",
+            TokenKind::KwVoid => "KwVoid",
             TokenKind::LBrace => "LBrace",
             TokenKind::LBracket => "LBracket",
             TokenKind::LParen => "LParen",
@@ -105,6 +108,7 @@ impl TokenKind {
             TokenKind::RBrace => "RBrace",
             TokenKind::RBracket => "RBracket",
             TokenKind::RParen => "RParen",
+            TokenKind::Semicolon => "Semicolon",
             TokenKind::Slash => "Slash",
             TokenKind::Star => "Star",
             TokenKind::StrLit => "StrLit",
@@ -259,6 +263,7 @@ impl<'a> Tokenize<'a> {
             "const" => tok.borrow_mut().kind = TokenKind::KwConst,
             "as" => tok.borrow_mut().kind = TokenKind::KwAs,
             "return" => tok.borrow_mut().kind = TokenKind::KwReturn,
+            "void" => tok.borrow_mut().kind = TokenKind::KwVoid,
             "@import" => tok.borrow_mut().kind = TokenKind::KwImport,
             "@asm" => tok.borrow_mut().kind = TokenKind::KwAsm,
             _ => {}
@@ -349,6 +354,10 @@ impl<'a> Tokenize<'a> {
                     }
                     '~' => {
                         self.begin_token(TokenKind::BitNot);
+                        self.end_token();
+                    }
+                    ';' => {
+                        self.begin_token(TokenKind::Semicolon);
                         self.end_token();
                     }
                     'a'..='z' | 'A'..='Z' | '_' => {
