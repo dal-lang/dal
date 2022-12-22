@@ -10,7 +10,12 @@ use crate::{
 };
 
 use super::{
-    ast::{FnProtoVisibMod, Node, NodeData, NodeKind, TypeKind},
+    ast::{
+        AsmExpr, AsmInput, AsmOutput, BinOpKind, CastExpr, FnProtoVisibMod, Node,
+        NodeArrayAccessExpr, NodeBinOpExpr, NodeBlock, NodeCallExpr, NodeData, NodeFnDecl,
+        NodeFnDef, NodeFnProto, NodeIfExpr, NodeImport, NodeKind, NodeParamDecl, NodeReturn,
+        NodeRoot, NodeType, NodeUnaryOpExpr, NodeVarDecl, SrcPos, TypeKind, UnaryOpKind,
+    },
     tokenizer::{Token, TokenKind},
 };
 use std::cell::RefCell;
@@ -18,7 +23,7 @@ use std::cell::RefCell;
 #[derive(Debug, PartialEq, Eq)]
 struct ParseContext<'a> {
     src: String,
-    root: Option<RefCell<Node>>,
+    root: Option<Node>,
     tokens: Vec<Token>,
     owner: RefCell<&'a mut ImportTableEntry>,
     err_color: ErrColor,
@@ -47,7 +52,7 @@ impl<'a> ParseContext<'a> {
         err.print(&self.err_color);
     }
 
-    fn invalid_token_error(&self, token: &Token) {
+    fn invalid_token_error(&self, token: &Token) -> ! {
         self.ast_error(
             token,
             format!("Invalid token error: '{}'", token.kind.to_str()),
@@ -66,10 +71,10 @@ impl<'a> ParseContext<'a> {
 
     fn ast_asm_error(&self, node: &Node, offset: usize, msg: String) -> ! {
         assert_eq!(node.kind, NodeKind::AsmExpr);
-        let src_pos = &node.data.asm_expr().borrow().offset_map.clone()[offset];
+        let src_pos = &node.data.asm_expr().borrow().offset_map.borrow().clone()[offset];
         let err = ErrMsg {
-            line_start: src_pos.borrow().line,
-            col_start: src_pos.borrow().col,
+            line_start: src_pos.line,
+            col_start: src_pos.col,
             msg,
             path: self.owner.borrow().path.clone(),
             src: self.owner.borrow().src_code.clone(),
@@ -79,13 +84,76 @@ impl<'a> ParseContext<'a> {
     }
 
     fn create_node_no_line_info(&self, kind: NodeKind) -> Node {
-        Node {
-            kind,
-            line: 0,
-            col: 0,
-            owner: std::ptr::null_mut(),
-            data: Box::new(NodeData::None),
+        let mut node = Node::new(kind);
+        match kind {
+            NodeKind::Root => {
+                node.data = Box::new(NodeData::Root(RefCell::new(NodeRoot::new())));
+            }
+            NodeKind::FnProto => {
+                node.data = Box::new(NodeData::FnProto(RefCell::new(NodeFnProto::new())));
+            }
+            NodeKind::FnDef => {
+                node.data = Box::new(NodeData::FnDef(RefCell::new(NodeFnDef::new())));
+            }
+            NodeKind::FnDecl => {
+                node.data = Box::new(NodeData::FnDecl(RefCell::new(NodeFnDecl::new())));
+            }
+            NodeKind::ParamDecl => {
+                node.data = Box::new(NodeData::ParamDecl(RefCell::new(NodeParamDecl::new())));
+            }
+            NodeKind::Type => {
+                node.data = Box::new(NodeData::Type(RefCell::new(NodeType::new())));
+            }
+            NodeKind::Block => {
+                node.data = Box::new(NodeData::Block(RefCell::new(NodeBlock::new())));
+            }
+            NodeKind::Import => {
+                node.data = Box::new(NodeData::Import(RefCell::new(NodeImport::new())));
+            }
+            NodeKind::Return => {
+                node.data = Box::new(NodeData::Return(RefCell::new(NodeReturn::new())));
+            }
+            NodeKind::VarDecl => {
+                node.data = Box::new(NodeData::VarDecl(RefCell::new(NodeVarDecl::new())));
+            }
+            NodeKind::BinOpExpr => {
+                node.data = Box::new(NodeData::BinOpExpr(RefCell::new(NodeBinOpExpr::new())));
+            }
+            NodeKind::UnaryOpExpr => {
+                node.data = Box::new(NodeData::UnaryOpExpr(RefCell::new(NodeUnaryOpExpr::new())));
+            }
+            NodeKind::CallExpr => {
+                node.data = Box::new(NodeData::CallExpr(RefCell::new(NodeCallExpr::new())));
+            }
+            NodeKind::Ident => {
+                node.data = Box::new(NodeData::Ident(String::new()));
+            }
+            NodeKind::ArrayAccessExpr => {
+                node.data = Box::new(NodeData::ArrayAccessExpr(RefCell::new(
+                    NodeArrayAccessExpr::new(),
+                )));
+            }
+            NodeKind::CastExpr => {
+                node.data = Box::new(NodeData::CastExpr(RefCell::new(CastExpr::new())));
+            }
+            NodeKind::IfExpr => {
+                node.data = Box::new(NodeData::IfExpr(RefCell::new(NodeIfExpr::new())));
+            }
+            NodeKind::AsmExpr => {
+                node.data = Box::new(NodeData::AsmExpr(RefCell::new(AsmExpr::new())));
+            }
+            NodeKind::StrLit => {
+                node.data = Box::new(NodeData::StrLit(RefCell::new(String::new())));
+            }
+            NodeKind::NumLit => {
+                node.data = Box::new(NodeData::NumLit(String::new()));
+            }
+            NodeKind::BoolLit => {
+                node.data = Box::new(NodeData::BoolLit(false));
+            }
+            NodeKind::Void => {}
         }
+        node
     }
 
     fn update_node_line_info(&self, node: &mut Node, token: &Token) {
@@ -113,6 +181,733 @@ impl<'a> ParseContext<'a> {
         node
     }
 
+    fn parse_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let tok = &self.tokens[*tok_index];
+
+        let block = self.parse_block_expr(tok_index, false);
+        if block.is_some() {
+            return block;
+        }
+
+        let non_block = self.parse_non_block_expr(tok_index, false);
+        if non_block.is_some() {
+            return non_block;
+        }
+
+        if mandatory {
+            self.invalid_token_error(tok);
+        }
+
+        None
+    }
+
+    fn parse_type(&self, tok_index: usize, new_tok_index: &mut usize) -> Node {
+        let mut tok_index = tok_index;
+        let tok = &self.tokens[tok_index];
+        tok_index += 1;
+
+        let node = self.create_node(NodeKind::Type, tok);
+        if tok.kind == TokenKind::KwVoid {
+            node.data.type_().borrow_mut().kind = TypeKind::Primitive;
+            node.data.type_().borrow_mut().name = "void".to_string();
+        } else if tok.kind == TokenKind::Ident {
+            node.data.type_().borrow_mut().kind = TypeKind::Primitive;
+            node.data.type_().borrow_mut().name = self.tok_val(tok).to_string();
+        } else if tok.kind == TokenKind::Star {
+            node.data.type_().borrow_mut().kind = TypeKind::Pointer;
+            let const_or_mut = &self.tokens[tok_index];
+            tok_index += 1;
+            if const_or_mut.kind == TokenKind::KwMut {
+                node.data.type_().borrow_mut().is_const = false;
+            } else if const_or_mut.kind == TokenKind::KwConst {
+                node.data.type_().borrow_mut().is_const = true;
+            } else {
+                self.invalid_token_error(const_or_mut);
+            }
+            node.data.type_().borrow_mut().child_type =
+                RefCell::new(Some(self.parse_type(tok_index, &mut tok_index)));
+        } else if tok.kind == TokenKind::LBracket {
+            node.data.type_().borrow_mut().kind = TypeKind::Array;
+            node.data.type_().borrow_mut().child_type =
+                RefCell::new(Some(self.parse_type(tok_index, &mut tok_index)));
+            let semi = &self.tokens[tok_index];
+            tok_index += 1;
+            self.expect_token(semi, TokenKind::Semicolon);
+            node.data.type_().borrow_mut().array_size =
+                RefCell::new(self.parse_expr(&mut tok_index, true));
+            let rbracket = &self.tokens[tok_index];
+            tok_index += 1;
+            self.expect_token(rbracket, TokenKind::RBracket);
+        } else {
+            self.invalid_token_error(tok);
+        }
+
+        *new_tok_index = tok_index;
+        node
+    }
+
+    fn parse_param_decl(&self, tok_index: usize, new_tok_index: &mut usize) -> Option<Node> {
+        let mut tok_index = tok_index;
+        let param_name = &self.tokens[tok_index];
+        tok_index += 1;
+
+        if param_name.kind == TokenKind::Ident {
+            let node = self.create_node(NodeKind::ParamDecl, param_name);
+            node.data.param_decl().borrow_mut().name = self.tok_val(param_name).to_string();
+            let colon = &self.tokens[tok_index];
+            tok_index += 1;
+            self.expect_token(colon, TokenKind::Colon);
+            node.data.param_decl().borrow_mut().param_type =
+                RefCell::new(self.parse_type(tok_index, &mut tok_index));
+            *new_tok_index = tok_index;
+            Some(node)
+        } else {
+            self.invalid_token_error(param_name);
+        }
+    }
+
+    fn parse_param_decl_list(
+        &self,
+        tok_index: usize,
+        new_tok_index: &mut usize,
+        params: &RefCell<Vec<Node>>,
+    ) {
+        let mut tok_index = tok_index;
+        let lparen = &self.tokens[tok_index];
+        tok_index += 1;
+        self.expect_token(lparen, TokenKind::LParen);
+
+        let token = &self.tokens[tok_index];
+        if token.kind == TokenKind::RParen {
+            tok_index += 1;
+            *new_tok_index = tok_index;
+            return;
+        }
+
+        loop {
+            let param_decl_node = self.parse_param_decl(tok_index, &mut tok_index);
+            if param_decl_node.is_some() {
+                params.borrow_mut().push(param_decl_node.unwrap());
+            }
+
+            let token = &self.tokens[tok_index];
+            tok_index += 1;
+            if token.kind == TokenKind::RParen {
+                *new_tok_index = tok_index;
+                return;
+            } else {
+                self.expect_token(token, TokenKind::Comma);
+            }
+        }
+    }
+
+    fn parse_var_decl_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let let_tok = &self.tokens[*tok_index];
+        if let_tok.kind == TokenKind::KwLet {
+            *tok_index += 1;
+            let node = self.create_node(NodeKind::VarDecl, let_tok);
+            let name_tok: &Token;
+            let tok = &self.tokens[*tok_index];
+            if tok.kind == TokenKind::KwMut {
+                node.data.var_decl().borrow_mut().is_const = false;
+                *tok_index += 1;
+                name_tok = &self.tokens[*tok_index];
+                self.expect_token(name_tok, TokenKind::Ident);
+            } else if tok.kind == TokenKind::Ident {
+                node.data.var_decl().borrow_mut().is_const = true;
+                name_tok = tok;
+            } else {
+                self.invalid_token_error(tok);
+            }
+            *tok_index += 1;
+            node.data.var_decl().borrow_mut().name = self.tok_val(name_tok).to_string();
+
+            let assign_or_colon = &self.tokens[*tok_index];
+            *tok_index += 1;
+            if assign_or_colon.kind == TokenKind::Assign {
+                node.data.var_decl().borrow_mut().expr =
+                    RefCell::new(self.parse_expr(tok_index, true));
+                return Some(node);
+            } else if assign_or_colon.kind == TokenKind::Colon {
+                node.data.var_decl().borrow_mut().var_type =
+                    RefCell::new(Some(self.parse_type(*tok_index, tok_index)));
+
+                let assign = &self.tokens[*tok_index];
+                if assign.kind == TokenKind::Assign {
+                    *tok_index += 1;
+                    node.data.var_decl().borrow_mut().expr =
+                        RefCell::new(self.parse_expr(tok_index, true));
+                }
+                return Some(node);
+            } else {
+                self.invalid_token_error(assign_or_colon);
+            }
+        } else if mandatory {
+            self.invalid_token_error(let_tok);
+        } else {
+            return None;
+        }
+    }
+
+    fn parse_else_or_else_if(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let else_tok = &self.tokens[*tok_index];
+        if else_tok.kind != TokenKind::KwElse {
+            if mandatory {
+                self.invalid_token_error(else_tok);
+            } else {
+                return None;
+            }
+        }
+        *tok_index += 1;
+        let if_expr = self.parse_if_expr(tok_index, false);
+        if if_expr.is_some() {
+            return if_expr;
+        }
+        self.parse_block(tok_index, true)
+    }
+
+    fn parse_if_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let if_tok = &self.tokens[*tok_index];
+        if if_tok.kind != TokenKind::KwIf {
+            if mandatory {
+                self.invalid_token_error(if_tok);
+            } else {
+                return None;
+            }
+        }
+        *tok_index += 1;
+
+        let node = self.create_node(NodeKind::IfExpr, if_tok);
+        node.data.if_expr().borrow_mut().cond =
+            RefCell::new(self.parse_expr(tok_index, true).unwrap());
+        node.data.if_expr().borrow_mut().then =
+            RefCell::new(self.parse_block_expr(tok_index, true).unwrap());
+        node.data.if_expr().borrow_mut().else_ =
+            RefCell::new(self.parse_else_or_else_if(tok_index, false));
+        Some(node)
+    }
+
+    fn parse_block_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let tok = &self.tokens[*tok_index];
+
+        let if_expr = self.parse_if_expr(tok_index, false);
+        if if_expr.is_some() {
+            return if_expr;
+        }
+
+        let block = self.parse_block(tok_index, false);
+        if block.is_some() {
+            return block;
+        }
+
+        if mandatory {
+            self.invalid_token_error(tok);
+        }
+        None
+    }
+
+    fn parse_return_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let return_tok = &self.tokens[*tok_index];
+        if return_tok.kind == TokenKind::KwReturn {
+            *tok_index += 1;
+            let node = self.create_node(NodeKind::Return, return_tok);
+            node.data.return_().borrow_mut().expr = RefCell::new(self.parse_expr(tok_index, false));
+            Some(node)
+        } else if mandatory {
+            self.invalid_token_error(return_tok);
+        } else {
+            None
+        }
+    }
+
+    fn parse_grouped_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let lparen = &self.tokens[*tok_index];
+        if lparen.kind != TokenKind::LParen {
+            if mandatory {
+                self.invalid_token_error(lparen);
+            } else {
+                return None;
+            }
+        }
+        *tok_index += 1;
+
+        let node = self.parse_expr(tok_index, true);
+
+        let rparen = &self.tokens[*tok_index];
+        *tok_index += 1;
+        self.expect_token(rparen, TokenKind::RParen);
+
+        node
+    }
+
+    fn parse_primary_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let tok = &self.tokens[*tok_index];
+
+        if tok.kind == TokenKind::NumLit {
+            let mut node = self.create_node(NodeKind::NumLit, tok);
+            node.data = Box::new(NodeData::NumLit(self.tok_val(tok).to_string()));
+            *tok_index += 1;
+            return Some(node);
+        } else if tok.kind == TokenKind::StrLit {
+            let mut node = self.create_node(NodeKind::StrLit, tok);
+            node.data = Box::new(NodeData::StrLit(RefCell::new(String::new())));
+            self.parse_string_literal(tok, node.data.str_lit(), None);
+            *tok_index += 1;
+            return Some(node);
+        } else if tok.kind == TokenKind::KwVoid {
+            let node = self.create_node(NodeKind::Void, tok);
+            *tok_index += 1;
+            return Some(node);
+        } else if tok.kind == TokenKind::KwTrue {
+            let mut node = self.create_node(NodeKind::BoolLit, tok);
+            node.data = Box::new(NodeData::BoolLit(true));
+            *tok_index += 1;
+            return Some(node);
+        } else if tok.kind == TokenKind::KwFalse {
+            let mut node = self.create_node(NodeKind::BoolLit, tok);
+            node.data = Box::new(NodeData::BoolLit(false));
+            *tok_index += 1;
+            return Some(node);
+        } else if tok.kind == TokenKind::Ident {
+            let mut node = self.create_node(NodeKind::Ident, tok);
+            node.data = Box::new(NodeData::Ident(self.tok_val(tok).to_string()));
+            *tok_index += 1;
+            return Some(node);
+        }
+
+        let grouped_expr = self.parse_grouped_expr(tok_index, false);
+        if grouped_expr.is_some() {
+            return grouped_expr;
+        }
+
+        if !mandatory {
+            return None;
+        }
+
+        self.invalid_token_error(tok);
+    }
+
+    fn parse_call_params(
+        &self,
+        tok_index: usize,
+        new_tok_index: &mut usize,
+        params: &RefCell<Vec<Node>>,
+    ) {
+        let mut tok_index = tok_index;
+        let tok = &self.tokens[tok_index];
+        if tok.kind == TokenKind::RParen {
+            tok_index += 1;
+            *new_tok_index = tok_index;
+            return;
+        }
+
+        loop {
+            let expr = self.parse_expr(&mut tok_index, true);
+            params.borrow_mut().push(expr.unwrap());
+            let tok = &self.tokens[tok_index];
+            tok_index += 1;
+            if tok.kind == TokenKind::RParen {
+                *new_tok_index = tok_index;
+                return;
+            } else {
+                self.expect_token(tok, TokenKind::Comma);
+            }
+        }
+    }
+
+    fn parse_post_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let primary = self.parse_primary_expr(tok_index, mandatory);
+        if primary.is_none() {
+            return None;
+        }
+
+        let tok = &self.tokens[*tok_index];
+        if tok.kind == TokenKind::LParen {
+            *tok_index += 1;
+            let node = self.create_node(NodeKind::CallExpr, tok);
+            node.data.call_expr().borrow_mut().callee = RefCell::new(primary.unwrap());
+            self.parse_call_params(
+                *tok_index,
+                tok_index,
+                &node.data.call_expr().borrow_mut().args,
+            );
+
+            Some(node)
+        } else if tok.kind == TokenKind::LBracket {
+            *tok_index += 1;
+            let node = self.create_node(NodeKind::ArrayAccessExpr, tok);
+            node.data.array_access_expr().borrow_mut().array = RefCell::new(primary.unwrap());
+            node.data.array_access_expr().borrow_mut().index =
+                RefCell::new(self.parse_expr(tok_index, true).unwrap());
+            let rbracket = &self.tokens[*tok_index];
+            *tok_index += 1;
+            self.expect_token(rbracket, TokenKind::RBracket);
+            Some(node)
+        } else {
+            primary
+        }
+    }
+
+    fn tok_to_unary_op(&self, tok: &Token) -> UnaryOpKind {
+        match tok.kind {
+            TokenKind::Bang => UnaryOpKind::BoolNot,
+            TokenKind::Dash => UnaryOpKind::Neg,
+            TokenKind::BitNot => UnaryOpKind::Not,
+            _ => UnaryOpKind::Invalid,
+        }
+    }
+
+    fn parse_unary_op(&self, tok_index: &mut usize, mandatory: bool) -> UnaryOpKind {
+        let tok = &self.tokens[*tok_index];
+        let res = self.tok_to_unary_op(tok);
+        if res == UnaryOpKind::Invalid {
+            if mandatory {
+                self.invalid_token_error(tok);
+            } else {
+                return UnaryOpKind::Invalid;
+            }
+        }
+        *tok_index += 1;
+        res
+    }
+
+    fn parse_unary_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let tok = &self.tokens[*tok_index];
+        let unary_op = self.parse_unary_op(tok_index, false);
+        if unary_op == UnaryOpKind::Invalid {
+            return self.parse_post_expr(tok_index, mandatory);
+        }
+
+        let unary_expr = self.parse_post_expr(tok_index, true);
+
+        let node = self.create_node(NodeKind::UnaryOpExpr, tok);
+        node.data.unary_op_expr().borrow_mut().expr = RefCell::new(unary_expr.unwrap());
+        node.data.unary_op_expr().borrow_mut().op = unary_op;
+        Some(node)
+    }
+
+    fn parse_cast_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let un = self.parse_unary_expr(tok_index, mandatory);
+        if un.is_none() {
+            return None;
+        }
+
+        let as_kw = &self.tokens[*tok_index];
+        if as_kw.kind != TokenKind::KwAs {
+            return un;
+        }
+        *tok_index += 1;
+
+        let node = self.create_node(NodeKind::CastExpr, as_kw);
+        node.data.cast_expr().borrow_mut().expr = RefCell::new(un.unwrap());
+        node.data.cast_expr().borrow_mut().cast_type =
+            RefCell::new(Some(self.parse_type(*tok_index, tok_index)));
+        Some(node)
+    }
+
+    fn tok_to_mul_op(&self, tok: &Token) -> BinOpKind {
+        match tok.kind {
+            TokenKind::Star => BinOpKind::Mul,
+            TokenKind::Slash => BinOpKind::Div,
+            TokenKind::Percent => BinOpKind::Mod,
+            _ => BinOpKind::Invalid,
+        }
+    }
+
+    fn parse_mul_op(&self, tok_index: &mut usize, mandatory: bool) -> BinOpKind {
+        let tok = &self.tokens[*tok_index];
+        let res = self.tok_to_mul_op(tok);
+        if res == BinOpKind::Invalid {
+            if mandatory {
+                self.invalid_token_error(tok);
+            } else {
+                return BinOpKind::Invalid;
+            }
+        }
+        *tok_index += 1;
+        res
+    }
+
+    fn parse_mul_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let op1 = self.parse_cast_expr(tok_index, mandatory);
+        if op1.is_none() {
+            return None;
+        }
+
+        let tok = &self.tokens[*tok_index];
+        let mul_op = self.parse_mul_op(tok_index, false);
+        if mul_op == BinOpKind::Invalid {
+            return op1;
+        }
+        *tok_index += 1;
+
+        let op2 = self.parse_cast_expr(tok_index, true);
+
+        let node = self.create_node(NodeKind::BinOpExpr, tok);
+        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
+        node.data.bin_op_expr().borrow_mut().op = mul_op;
+        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        Some(node)
+    }
+
+    fn tok_to_add_op(&self, tok: &Token) -> BinOpKind {
+        match tok.kind {
+            TokenKind::Plus => BinOpKind::Add,
+            TokenKind::Dash => BinOpKind::Sub,
+            _ => BinOpKind::Invalid,
+        }
+    }
+
+    fn parse_add_op(&self, tok_index: &mut usize, mandatory: bool) -> BinOpKind {
+        let tok = &self.tokens[*tok_index];
+        let res = self.tok_to_add_op(tok);
+        if res == BinOpKind::Invalid {
+            if mandatory {
+                self.invalid_token_error(tok);
+            } else {
+                return BinOpKind::Invalid;
+            }
+        }
+        *tok_index += 1;
+        res
+    }
+
+    fn parse_add_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let op1 = self.parse_mul_expr(tok_index, mandatory);
+        if op1.is_none() {
+            return None;
+        }
+
+        let tok = &self.tokens[*tok_index];
+        let add_op = self.parse_add_op(tok_index, false);
+        if add_op == BinOpKind::Invalid {
+            return op1;
+        }
+
+        let op2 = self.parse_mul_expr(tok_index, true);
+
+        let node = self.create_node(NodeKind::BinOpExpr, tok);
+        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
+        node.data.bin_op_expr().borrow_mut().op = add_op;
+        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        Some(node)
+    }
+
+    fn tok_to_bit_shift_op(&self, tok: &Token) -> BinOpKind {
+        match tok.kind {
+            TokenKind::BitShl => BinOpKind::Shl,
+            TokenKind::BitShr => BinOpKind::Shr,
+            _ => BinOpKind::Invalid,
+        }
+    }
+
+    fn parse_bit_shift_op(&self, tok_index: &mut usize, mandatory: bool) -> BinOpKind {
+        let tok = &self.tokens[*tok_index];
+        let res = self.tok_to_bit_shift_op(tok);
+        if res == BinOpKind::Invalid {
+            if mandatory {
+                self.invalid_token_error(tok);
+            } else {
+                return BinOpKind::Invalid;
+            }
+        }
+        *tok_index += 1;
+        res
+    }
+
+    fn parse_bit_shift_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let op1 = self.parse_add_expr(tok_index, mandatory);
+        if op1.is_none() {
+            return None;
+        }
+
+        let tok = &self.tokens[*tok_index];
+        let bit_shift_op = self.parse_bit_shift_op(tok_index, false);
+        if bit_shift_op == BinOpKind::Invalid {
+            return op1;
+        }
+
+        let op2 = self.parse_add_expr(tok_index, true);
+
+        let node = self.create_node(NodeKind::BinOpExpr, tok);
+        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
+        node.data.bin_op_expr().borrow_mut().op = bit_shift_op;
+        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        Some(node)
+    }
+
+    fn parse_bin_and_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let op1 = self.parse_bit_shift_expr(tok_index, mandatory);
+        if op1.is_none() {
+            return None;
+        }
+
+        let tok = &self.tokens[*tok_index];
+        if tok.kind != TokenKind::BoolAnd {
+            return op1;
+        }
+        *tok_index += 1;
+
+        let op2 = self.parse_bit_shift_expr(tok_index, true);
+
+        let node = self.create_node(NodeKind::BinOpExpr, tok);
+        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
+        node.data.bin_op_expr().borrow_mut().op = BinOpKind::BoolAnd;
+        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        Some(node)
+    }
+
+    fn parse_bin_xor_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let op1 = self.parse_bin_and_expr(tok_index, mandatory);
+        if op1.is_none() {
+            return None;
+        }
+
+        let tok = &self.tokens[*tok_index];
+        if tok.kind != TokenKind::BitXor {
+            return op1;
+        }
+        *tok_index += 1;
+
+        let op2 = self.parse_bin_and_expr(tok_index, true);
+
+        let node = self.create_node(NodeKind::BinOpExpr, tok);
+        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
+        node.data.bin_op_expr().borrow_mut().op = BinOpKind::BoolAnd;
+        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        Some(node)
+    }
+
+    fn parse_bin_or_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let op1 = self.parse_bin_xor_expr(tok_index, mandatory);
+        if op1.is_none() {
+            return None;
+        }
+
+        let tok = &self.tokens[*tok_index];
+        if tok.kind != TokenKind::BitOr {
+            return op1;
+        }
+        *tok_index += 1;
+
+        let op2 = self.parse_bin_xor_expr(tok_index, true);
+
+        let node = self.create_node(NodeKind::BinOpExpr, tok);
+        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
+        node.data.bin_op_expr().borrow_mut().op = BinOpKind::Or;
+        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        Some(node)
+    }
+
+    fn tok_to_cmp_op(&self, tok: &Token) -> BinOpKind {
+        match tok.kind {
+            TokenKind::Assign => BinOpKind::Assign,
+            TokenKind::CmpEq => BinOpKind::Eq,
+            TokenKind::CmpNeq => BinOpKind::Neq,
+            TokenKind::CmpLt => BinOpKind::Lt,
+            TokenKind::CmpGt => BinOpKind::Gt,
+            TokenKind::CmpLte => BinOpKind::Lte,
+            TokenKind::CmpGte => BinOpKind::Gte,
+            _ => BinOpKind::Invalid,
+        }
+    }
+
+    fn parse_cmp_op(&self, tok_index: &mut usize, mandatory: bool) -> BinOpKind {
+        let tok = &self.tokens[*tok_index];
+        let res = self.tok_to_cmp_op(tok);
+        if res == BinOpKind::Invalid {
+            if mandatory {
+                self.invalid_token_error(tok);
+            } else {
+                return BinOpKind::Invalid;
+            }
+        }
+        *tok_index += 1;
+        res
+    }
+
+    fn parse_cmp_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let op1 = self.parse_bin_or_expr(tok_index, mandatory);
+        if op1.is_none() {
+            return None;
+        }
+
+        let tok = &self.tokens[*tok_index];
+        let cmp_op = self.parse_cmp_op(tok_index, false);
+        if cmp_op == BinOpKind::Invalid {
+            return op1;
+        }
+
+        let op2 = self.parse_bin_or_expr(tok_index, true);
+        let node = self.create_node(NodeKind::BinOpExpr, tok);
+        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
+        node.data.bin_op_expr().borrow_mut().op = cmp_op;
+        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        Some(node)
+    }
+
+    fn parse_bool_and_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let op1 = self.parse_cmp_expr(tok_index, mandatory);
+        if op1.is_none() {
+            return None;
+        }
+
+        let tok = &self.tokens[*tok_index];
+        if tok.kind != TokenKind::BoolAnd {
+            return op1;
+        }
+        *tok_index += 1;
+
+        let op2 = self.parse_cmp_expr(tok_index, true);
+
+        let node = self.create_node(NodeKind::BinOpExpr, tok);
+        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
+        node.data.bin_op_expr().borrow_mut().op = BinOpKind::BoolAnd;
+        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        Some(node)
+    }
+
+    fn parse_bool_or_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let op1 = self.parse_bool_and_expr(tok_index, mandatory);
+        if op1.is_none() {
+            return None;
+        }
+
+        let tok = &self.tokens[*tok_index];
+        if tok.kind != TokenKind::BoolOr {
+            return op1;
+        }
+        *tok_index += 1;
+
+        let op2 = self.parse_bool_and_expr(tok_index, true);
+
+        let node = self.create_node(NodeKind::BinOpExpr, tok);
+        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
+        node.data.bin_op_expr().borrow_mut().op = BinOpKind::BoolOr;
+        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        Some(node)
+    }
+
+    fn parse_assignment_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let lhs = self.parse_bool_or_expr(tok_index, mandatory);
+        if lhs.is_none() {
+            return None;
+        }
+
+        let tok = &self.tokens[*tok_index];
+        if tok.kind != TokenKind::Assign {
+            return lhs;
+        }
+        *tok_index += 1;
+
+        let rhs = self.parse_bool_or_expr(tok_index, true);
+        let node = self.create_node(NodeKind::BinOpExpr, tok);
+        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(lhs.unwrap());
+        node.data.bin_op_expr().borrow_mut().op = BinOpKind::Assign;
+        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(rhs.unwrap());
+        Some(node)
+    }
+
     fn parse_asm_template(&self, node: &Node) {
         let asm_template = &node.data.asm_expr().borrow_mut().asm_template;
 
@@ -131,8 +926,8 @@ impl<'a> ParseContext<'a> {
         let mut state = State::Start;
 
         let mut i = 0;
-        while i < asm_template.len() {
-            let c = asm_template.chars().nth(i).unwrap();
+        while i < asm_template.borrow().len() {
+            let c = asm_template.borrow().chars().nth(i).unwrap();
             match state {
                 State::Start => {
                     if c == '%' {
@@ -189,120 +984,323 @@ impl<'a> ParseContext<'a> {
         match state {
             State::Start => {}
             State::Percent | State::Var => {
-                self.ast_asm_error(node, asm_template.len(), "invalid asm template".to_string());
+                self.ast_asm_error(
+                    node,
+                    asm_template.borrow().len(),
+                    "invalid asm template".to_string(),
+                );
             }
             State::Template => {
-                cur_tok.unwrap().borrow_mut().end = asm_template.len();
+                cur_tok.unwrap().borrow_mut().end = asm_template.borrow().len();
             }
         }
     }
 
-    fn parse_expr(&self, tok_index: &mut usize, mandatory: bool) -> Node {
-        unimplemented!()
+    fn eat_token(&self, tok_index: &mut usize, kind: TokenKind) -> Token {
+        let tok = &self.tokens[*tok_index];
+        self.expect_token(tok, kind);
+        *tok_index += 1;
+        tok.clone()
     }
 
-    fn parse_type(&self, tok_index: usize, new_tok_index: &mut usize) -> Node {
-        let mut tok_index = tok_index;
-        let token = &self.tokens[tok_index];
-        tok_index += 1;
-        let mut node = self.create_node(NodeKind::Type, token);
-        if token.kind == TokenKind::KwVoid {
-            node.data.type_().borrow_mut().kind = TypeKind::Primitive;
-            node.data.type_().borrow_mut().name = "void".to_string();
-        } else if token.kind == TokenKind::Ident {
-            node.data.type_().borrow_mut().kind = TypeKind::Primitive;
-            node.data.type_().borrow_mut().name = self.tok_val(token).to_string();
-        } else if token.kind == TokenKind::Star {
-            node.data.type_().borrow_mut().kind = TypeKind::Pointer;
-            let const_or_mut = &self.tokens[tok_index];
-            tok_index += 1;
-            if const_or_mut.kind == TokenKind::KwMut {
-                node.data.type_().borrow_mut().is_const = false;
-            } else if const_or_mut.kind == TokenKind::KwConst {
-                node.data.type_().borrow_mut().is_const = true;
-            } else {
-                self.invalid_token_error(const_or_mut);
-            }
-            node.data.type_().borrow_mut().child_type =
-                Some(RefCell::new(self.parse_type(tok_index, &mut tok_index)));
-        } else if token.kind == TokenKind::LBracket {
-            node.data.type_().borrow_mut().kind = TypeKind::Array;
-            node.data.type_().borrow_mut().child_type =
-                Some(RefCell::new(self.parse_type(tok_index, &mut tok_index)));
-            let semi = &self.tokens[tok_index];
-            tok_index += 1;
-            self.expect_token(semi, TokenKind::Semicolon);
-            node.data.type_().borrow_mut().array_size =
-                Some(RefCell::new(self.parse_expr(&mut tok_index, true)));
-            let rbracket = &self.tokens[tok_index];
-            tok_index += 1;
-            self.expect_token(rbracket, TokenKind::RBracket);
-        } else {
-            self.invalid_token_error(token);
-        }
+    fn parse_asm_output_item(&self, tok_index: &mut usize, node: &Node) {
+        self.eat_token(tok_index, TokenKind::LBracket);
+        let alias = self.eat_token(tok_index, TokenKind::Ident);
+        self.eat_token(tok_index, TokenKind::RBracket);
 
-        node
+        let constraint = self.eat_token(tok_index, TokenKind::StrLit);
+
+        self.eat_token(tok_index, TokenKind::LParen);
+        let out_ident = self.eat_token(tok_index, TokenKind::Ident);
+        self.eat_token(tok_index, TokenKind::RParen);
+
+        let output = AsmOutput {
+            symbolic_name: self.tok_val(&alias).to_string(),
+            constraint: RefCell::new(String::new()),
+            var_name: self.tok_val(&out_ident).to_string(),
+        };
+        self.parse_string_literal(&constraint, &output.constraint, None);
+        node.data
+            .asm_expr()
+            .borrow_mut()
+            .output_list
+            .push(RefCell::new(output));
     }
 
-    fn parse_param_decl(&self, tok_index: usize, new_tok_index: &mut usize) -> Option<Node> {
-        let mut tok_index = tok_index;
-        let param_name = &self.tokens[tok_index];
-        tok_index += 1;
+    fn parse_asm_input_item(&self, tok_index: &mut usize, node: &Node) {
+        self.eat_token(tok_index, TokenKind::LBracket);
+        let alias = self.eat_token(tok_index, TokenKind::Ident);
+        self.eat_token(tok_index, TokenKind::RBracket);
 
-        if param_name.kind == TokenKind::Ident {
-            let mut node = self.create_node(NodeKind::ParamDecl, param_name);
-            node.data.param_decl().borrow_mut().name = self.tok_val(param_name).to_string();
-            let colon = &self.tokens[tok_index];
-            tok_index += 1;
-            self.expect_token(colon, TokenKind::Colon);
-            node.data.param_decl().borrow_mut().param_type =
-                RefCell::new(self.parse_type(tok_index, &mut tok_index));
-            *new_tok_index = tok_index;
-            Some(node)
-        } else {
-            self.invalid_token_error(param_name);
-            None
-        }
+        let constraint = self.eat_token(tok_index, TokenKind::StrLit);
+
+        self.eat_token(tok_index, TokenKind::LParen);
+        let expr = self.parse_expr(tok_index, true);
+        self.eat_token(tok_index, TokenKind::RParen);
+
+        let input = AsmInput {
+            symbolic_name: self.tok_val(&alias).to_string(),
+            constraint: RefCell::new(String::new()),
+            expr: RefCell::new(expr.unwrap()),
+        };
+        self.parse_string_literal(&constraint, &input.constraint, None);
+        node.data
+            .asm_expr()
+            .borrow_mut()
+            .input_list
+            .push(RefCell::new(input));
     }
 
-    fn parse_param_decl_list(
-        &self,
-        tok_index: usize,
-        new_tok_index: &mut usize,
-        params: &mut Vec<RefCell<Node>>,
-    ) {
-        let mut tok_index = tok_index;
-        let lparen = &self.tokens[tok_index];
-        tok_index += 1;
-        self.expect_token(lparen, TokenKind::LParen);
-
-        let token = &self.tokens[tok_index];
-        if token.kind == TokenKind::RParen {
-            tok_index += 1;
-            *new_tok_index = tok_index;
+    fn parse_asm_clobbers(&self, tok_index: &mut usize, node: &Node) {
+        let colon = &self.tokens[*tok_index];
+        if colon.kind != TokenKind::Colon {
             return;
         }
+        *tok_index += 1;
 
         loop {
-            let param_decl_node = self.parse_param_decl(tok_index, &mut tok_index);
-            if param_decl_node.is_some() {
-                params.push(RefCell::new(param_decl_node.unwrap()));
-            }
+            let str = &self.tokens[*tok_index];
+            self.expect_token(str, TokenKind::StrLit);
+            *tok_index += 1;
 
-            let token = &self.tokens[tok_index];
-            tok_index += 1;
-            if token.kind == TokenKind::RParen {
-                *new_tok_index = tok_index;
-                return;
+            let clobber = RefCell::new(String::new());
+            self.parse_string_literal(str, &clobber, None);
+            node.data
+                .asm_expr()
+                .borrow_mut()
+                .clobber_list
+                .push(clobber.borrow().clone());
+
+            let comma = &self.tokens[*tok_index];
+            if comma.kind == TokenKind::Comma {
+                *tok_index += 1;
             } else {
-                self.expect_token(token, TokenKind::Comma);
+                break;
+            }
+        }
+    }
+
+    fn parse_asm_input(&self, tok_index: &mut usize, node: &Node) {
+        let colon = &self.tokens[*tok_index];
+        if colon.kind != TokenKind::Colon {
+            return;
+        }
+        *tok_index += 1;
+
+        loop {
+            self.parse_asm_input_item(tok_index, node);
+            let comma = &self.tokens[*tok_index];
+            if comma.kind == TokenKind::Comma {
+                *tok_index += 1;
+            } else {
+                break;
+            }
+        }
+
+        self.parse_asm_clobbers(tok_index, node);
+    }
+
+    fn parse_asm_output(&self, tok_index: &mut usize, node: &Node) {
+        let colon = &self.tokens[*tok_index];
+        if colon.kind != TokenKind::Colon {
+            return;
+        }
+        *tok_index += 1;
+
+        loop {
+            self.parse_asm_output_item(tok_index, node);
+            let comma = &self.tokens[*tok_index];
+            if comma.kind == TokenKind::Comma {
+                *tok_index += 1;
+            } else {
+                break;
+            }
+        }
+
+        self.parse_asm_input(tok_index, node);
+    }
+
+    fn parse_asm_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let asm_tok = &self.tokens[*tok_index];
+        if asm_tok.kind != TokenKind::KwAsm {
+            if mandatory {
+                self.invalid_token_error(asm_tok);
+            } else {
+                return None;
+            }
+        }
+
+        let node = self.create_node(NodeKind::AsmExpr, asm_tok);
+        node.data.asm_expr().borrow_mut().asm_template = RefCell::new(String::new());
+        *tok_index += 1;
+
+        let lparen = &self.tokens[*tok_index];
+        self.expect_token(lparen, TokenKind::LParen);
+        *tok_index += 1;
+
+        let asm_str = &self.tokens[*tok_index];
+        self.expect_token(asm_str, TokenKind::StrLit);
+        *tok_index += 1;
+
+        self.parse_string_literal(
+            asm_str,
+            &node.data.asm_expr().borrow_mut().asm_template,
+            Some(&node.data.asm_expr().borrow_mut().offset_map),
+        );
+        self.parse_asm_template(&node);
+        self.parse_asm_output(tok_index, &node);
+
+        let rparen = &self.tokens[*tok_index];
+        self.expect_token(rparen, TokenKind::RParen);
+        *tok_index += 1;
+
+        Some(node)
+    }
+
+    fn parse_string_literal(
+        &self,
+        token: &Token,
+        buf: &RefCell<String>,
+        offset_map: Option<&RefCell<Vec<SrcPos>>>,
+    ) {
+        let mut escape = false;
+        let mut first = true;
+        let mut pos = SrcPos {
+            line: token.start_line,
+            col: token.start_col,
+        };
+        let mut i = token.start_pos;
+        while i < token.end_pos - 1 {
+            let c = self.src.chars().nth(i).unwrap();
+            if first {
+                first = false;
+            } else {
+                if escape {
+                    match c {
+                        '\\' => {
+                            buf.borrow_mut().push('\\');
+                            if offset_map.is_some() {
+                                offset_map.as_ref().unwrap().borrow_mut().push(pos.clone());
+                            }
+                        }
+                        'r' => {
+                            buf.borrow_mut().push('\r');
+                            if offset_map.is_some() {
+                                offset_map.as_ref().unwrap().borrow_mut().push(pos.clone());
+                            }
+                        }
+                        'n' => {
+                            buf.borrow_mut().push('\n');
+                            if offset_map.is_some() {
+                                offset_map.as_ref().unwrap().borrow_mut().push(pos.clone());
+                            }
+                        }
+                        't' => {
+                            buf.borrow_mut().push('\t');
+                            if offset_map.is_some() {
+                                offset_map.as_ref().unwrap().borrow_mut().push(pos.clone());
+                            }
+                        }
+                        '"' => {
+                            buf.borrow_mut().push('"');
+                            if offset_map.is_some() {
+                                offset_map.as_ref().unwrap().borrow_mut().push(pos.clone());
+                            }
+                        }
+                        _ => {}
+                    }
+                    escape = false;
+                } else if c == '\\' {
+                    escape = true;
+                } else {
+                    buf.borrow_mut().push(c);
+                    if offset_map.is_some() {
+                        offset_map.as_ref().unwrap().borrow_mut().push(pos.clone());
+                    }
+                }
+            }
+            if c == '\n' {
+                pos.line += 1;
+                pos.col = 0;
+            } else {
+                pos.col += 1;
+            }
+            i += 1;
+        }
+        if offset_map.is_some() {
+            offset_map.as_ref().unwrap().borrow_mut().push(pos.clone());
+        }
+    }
+
+    fn parse_non_block_expr(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let tok = &self.tokens[*tok_index];
+
+        let ret_expr = self.parse_return_expr(tok_index, false);
+        if ret_expr.is_some() {
+            return ret_expr;
+        }
+
+        let assignment_expr = self.parse_assignment_expr(tok_index, false);
+        if assignment_expr.is_some() {
+            return assignment_expr;
+        }
+
+        let asm_expr = self.parse_asm_expr(tok_index, false);
+        if asm_expr.is_some() {
+            return asm_expr;
+        }
+
+        if mandatory {
+            self.invalid_token_error(tok);
+        }
+        None
+    }
+
+    fn parse_block(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let mut last_tok = &self.tokens[*tok_index];
+
+        if last_tok.kind != TokenKind::LBrace {
+            if mandatory {
+                self.invalid_token_error(last_tok);
+            } else {
+                return None;
+            }
+        }
+        *tok_index += 1;
+
+        let node = self.create_node(NodeKind::Block, last_tok);
+        loop {
+            let mut stmt = self.parse_var_decl_expr(tok_index, false);
+            if stmt.is_none() {
+                stmt = self.parse_block_expr(tok_index, false);
+                if stmt.is_none() {
+                    stmt = self.parse_non_block_expr(tok_index, false);
+                    if stmt.is_none() {
+                        stmt = Some(self.create_node(NodeKind::Void, last_tok));
+                    }
+                }
+            }
+            node.data
+                .block()
+                .borrow_mut()
+                .children
+                .push(RefCell::new(stmt.unwrap()));
+            last_tok = &self.tokens[*tok_index];
+
+            if last_tok.kind == TokenKind::RBrace {
+                *tok_index += 1;
+                return Some(node);
+            } else {
+                continue;
             }
         }
     }
 
     fn parse_fn_proto(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
         let token = &self.tokens[*tok_index];
-        let mut visib_mod = FnProtoVisibMod::Private;
+
+        let visib_mod: FnProtoVisibMod;
+
         if token.kind == TokenKind::KwPub {
             visib_mod = FnProtoVisibMod::Public;
             *tok_index += 1;
@@ -318,7 +1316,7 @@ impl<'a> ParseContext<'a> {
             return None;
         }
 
-        let mut node = self.create_node(NodeKind::FnProto, token);
+        let node = self.create_node(NodeKind::FnProto, token);
         node.data.fn_proto().borrow_mut().visib_mod = visib_mod;
 
         let name_token = &self.tokens[*tok_index];
@@ -328,25 +1326,76 @@ impl<'a> ParseContext<'a> {
         self.parse_param_decl_list(
             *tok_index,
             tok_index,
-            &mut node.data.fn_proto().borrow_mut().params,
+            &node.data.fn_proto().borrow_mut().params,
         );
-        None
+
+        let arrow = &self.tokens[*tok_index];
+        if arrow.kind == TokenKind::Arrow {
+            *tok_index += 1;
+            node.data.fn_proto().borrow_mut().ret_type =
+                RefCell::new(self.parse_type(*tok_index, tok_index));
+        } else {
+            node.data.fn_proto().borrow_mut().ret_type =
+                RefCell::new(self.create_void_type_node(arrow));
+        }
+        Some(node)
     }
 
     fn parse_fn_def(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
         let fn_proto = self.parse_fn_proto(tok_index, mandatory);
-        None
+        if fn_proto.is_none() {
+            return None;
+        }
+
+        let node = self.create_node_with_node(NodeKind::FnDef, &fn_proto.as_ref().unwrap());
+        node.data.fn_def().borrow_mut().proto = RefCell::new(fn_proto.unwrap());
+        node.data.fn_def().borrow_mut().body =
+            RefCell::new(self.parse_block(tok_index, true).unwrap());
+
+        Some(node)
+    }
+
+    fn parse_import(&self, tok_index: &mut usize) -> Option<Node> {
+        let tok = &self.tokens[*tok_index];
+        if tok.kind != TokenKind::KwImport {
+            return None;
+        }
+
+        *tok_index += 1;
+
+        let node = self.create_node(NodeKind::Import, tok);
+        let str = &self.tokens[*tok_index];
+        self.parse_string_literal(str, &node.data.import().borrow_mut().path, None);
+        *tok_index += 1;
+
+        Some(node)
     }
 
     fn parse_top_level_decls(&mut self, tok_index: &mut usize, children: &mut Vec<RefCell<Node>>) {
         loop {
             let fn_def_node = self.parse_fn_def(tok_index, false);
+            if fn_def_node.is_some() {
+                children.push(RefCell::new(fn_def_node.unwrap()));
+                continue;
+            }
+
+            let import_node = self.parse_import(tok_index);
+            if import_node.is_some() {
+                children.push(RefCell::new(import_node.unwrap()));
+                continue;
+            }
+
+            return;
         }
     }
 
     fn parse_root(&mut self, tok_index: &mut usize) {
-        let mut node = self.create_node(NodeKind::Root, &self.tokens[*tok_index]);
+        let node = self.create_node(NodeKind::Root, &self.tokens[*tok_index]);
         self.parse_top_level_decls(tok_index, &mut node.data.root().borrow_mut().children);
+        if *tok_index != self.tokens.len() - 1 {
+            self.invalid_token_error(&self.tokens[*tok_index]);
+        }
+        self.root = Some(node);
     }
 }
 
@@ -355,7 +1404,7 @@ pub fn parse(
     tokens: Vec<RefCell<Token>>,
     owner: &mut ImportTableEntry,
     err_color: ErrColor,
-) {
+) -> Node {
     let mut ctx = ParseContext::new(owner);
     ctx.err_color = err_color;
     ctx.src = src.to_string();
@@ -364,4 +1413,5 @@ pub fn parse(
     }
     let mut tok_index = 0;
     ctx.parse_root(&mut tok_index);
+    ctx.root.unwrap().clone()
 }

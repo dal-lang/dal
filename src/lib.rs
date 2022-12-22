@@ -27,6 +27,31 @@ pub struct ErrMsg {
 
 impl ErrMsg {
     pub fn print(&self, color: &ErrColor) -> ! {
+        if color == &ErrColor::On || (color == &ErrColor::Auto && atty::is(atty::Stream::Stderr)) {
+            eprintln!(
+                "{}:{}:{}: {}",
+                self.path, self.line_start, self.col_start, self.msg
+            );
+            eprintln!("{}", self.src);
+            eprintln!(
+                "{}{}{}",
+                " ".repeat(self.col_start),
+                "^".repeat(self.msg.len()),
+                " ".repeat(self.src.len() - self.col_start - self.msg.len())
+            );
+        } else {
+            eprintln!(
+                "{}:{}:{}: {}",
+                self.path, self.line_start, self.col_start, self.msg
+            );
+            eprintln!("{}", self.src);
+            eprintln!(
+                "{}{}{}",
+                " ".repeat(self.col_start),
+                "^".repeat(self.msg.len()),
+                " ".repeat(self.src.len() - self.col_start - self.msg.len())
+            );
+        }
         std::process::exit(1);
     }
 }

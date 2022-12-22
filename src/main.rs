@@ -23,5 +23,6 @@ fn main() {
     }
 
     let mut import_table_entry = ImportTableEntry::new("./", src, out.line_offsets);
-    parse(src, out.tokens, &mut import_table_entry, ErrColor::Auto);
+    let ast = parse(src, out.tokens, &mut import_table_entry, ErrColor::Auto);
+    ast.print_ast(0);
 }

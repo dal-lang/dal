@@ -67,6 +67,12 @@ pub struct NodeRoot {
     pub children: Vec<RefCell<Node>>,
 }
 
+impl NodeRoot {
+    pub fn new() -> Self {
+        Self { children: vec![] }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FnProtoVisibMod {
     Public,
@@ -77,8 +83,19 @@ pub enum FnProtoVisibMod {
 pub struct NodeFnProto {
     pub visib_mod: FnProtoVisibMod,
     pub name: String,
-    pub params: Vec<RefCell<Node>>,
+    pub params: RefCell<Vec<Node>>,
     pub ret_type: RefCell<Node>,
+}
+
+impl NodeFnProto {
+    pub fn new() -> Self {
+        Self {
+            visib_mod: FnProtoVisibMod::Private,
+            name: String::new(),
+            params: RefCell::new(Vec::new()),
+            ret_type: RefCell::new(Node::new(NodeKind::Root)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,15 +104,41 @@ pub struct NodeFnDef {
     pub body: RefCell<Node>,
 }
 
+impl NodeFnDef {
+    pub fn new() -> Self {
+        Self {
+            proto: RefCell::new(Node::new(NodeKind::Root)),
+            body: RefCell::new(Node::new(NodeKind::Root)),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeFnDecl {
     pub proto: RefCell<Node>,
+}
+
+impl NodeFnDecl {
+    pub fn new() -> Self {
+        Self {
+            proto: RefCell::new(Node::new(NodeKind::Root)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeParamDecl {
     pub name: String,
     pub param_type: RefCell<Node>,
+}
+
+impl NodeParamDecl {
+    pub fn new() -> Self {
+        Self {
+            name: String::new(),
+            param_type: RefCell::new(Node::new(NodeKind::Root)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,9 +152,21 @@ pub enum TypeKind {
 pub struct NodeType {
     pub kind: TypeKind,
     pub name: String,
-    pub child_type: Option<RefCell<Node>>,
-    pub array_size: Option<RefCell<Node>>,
+    pub child_type: RefCell<Option<Node>>,
+    pub array_size: RefCell<Option<Node>>,
     pub is_const: bool,
+}
+
+impl NodeType {
+    pub fn new() -> Self {
+        Self {
+            kind: TypeKind::Primitive,
+            name: String::new(),
+            child_type: RefCell::new(None),
+            array_size: RefCell::new(None),
+            is_const: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -119,26 +174,63 @@ pub struct NodeBlock {
     pub children: Vec<RefCell<Node>>,
 }
 
+impl NodeBlock {
+    pub fn new() -> Self {
+        Self {
+            children: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeImport {
-    pub path: String,
+    pub path: RefCell<String>,
+}
+
+impl NodeImport {
+    pub fn new() -> Self {
+        Self {
+            path: RefCell::new(String::new()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeReturn {
-    pub expr: Option<RefCell<Node>>,
+    pub expr: RefCell<Option<Node>>,
+}
+
+impl NodeReturn {
+    pub fn new() -> Self {
+        Self {
+            expr: RefCell::new(None),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeVarDecl {
     pub name: String,
     pub is_const: bool,
-    pub var_type: Option<RefCell<Node>>,
-    pub expr: Option<RefCell<Node>>,
+    pub var_type: RefCell<Option<Node>>,
+    pub expr: RefCell<Option<Node>>,
+}
+
+impl NodeVarDecl {
+    pub fn new() -> Self {
+        Self {
+            name: String::new(),
+            is_const: false,
+            var_type: RefCell::new(None),
+            expr: RefCell::new(None),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BinOpKind {
+    Invalid,
+    Assign,
     Add,
     Sub,
     Mul,
@@ -162,6 +254,8 @@ pub enum BinOpKind {
 impl BinOpKind {
     pub fn to_str(&self) -> &str {
         match self {
+            BinOpKind::Invalid => "Invalid",
+            BinOpKind::Assign => "=",
             BinOpKind::Add => "+",
             BinOpKind::Sub => "-",
             BinOpKind::Mul => "*",
@@ -191,8 +285,19 @@ pub struct NodeBinOpExpr {
     pub rhs: RefCell<Node>,
 }
 
+impl NodeBinOpExpr {
+    pub fn new() -> Self {
+        Self {
+            op: BinOpKind::Invalid,
+            lhs: RefCell::new(Node::new(NodeKind::Root)),
+            rhs: RefCell::new(Node::new(NodeKind::Root)),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnaryOpKind {
+    Invalid,
     Neg,
     Not,
     BoolNot,
@@ -201,6 +306,7 @@ pub enum UnaryOpKind {
 impl UnaryOpKind {
     pub fn to_str(&self) -> &str {
         match self {
+            UnaryOpKind::Invalid => "Invalid",
             UnaryOpKind::Neg => "-",
             UnaryOpKind::Not => "~",
             UnaryOpKind::BoolNot => "!",
@@ -214,10 +320,28 @@ pub struct NodeUnaryOpExpr {
     pub expr: RefCell<Node>,
 }
 
+impl NodeUnaryOpExpr {
+    pub fn new() -> Self {
+        Self {
+            op: UnaryOpKind::Invalid,
+            expr: RefCell::new(Node::new(NodeKind::Root)),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeCallExpr {
     pub callee: RefCell<Node>,
-    pub args: Vec<RefCell<Node>>,
+    pub args: RefCell<Vec<Node>>,
+}
+
+impl NodeCallExpr {
+    pub fn new() -> Self {
+        Self {
+            callee: RefCell::new(Node::new(NodeKind::Root)),
+            args: RefCell::new(Vec::new()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -226,30 +350,58 @@ pub struct NodeArrayAccessExpr {
     pub index: RefCell<Node>,
 }
 
+impl NodeArrayAccessExpr {
+    pub fn new() -> Self {
+        Self {
+            array: RefCell::new(Node::new(NodeKind::Root)),
+            index: RefCell::new(Node::new(NodeKind::Root)),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CastExpr {
     pub expr: RefCell<Node>,
-    pub cast_type: Option<RefCell<Node>>,
+    pub cast_type: RefCell<Option<Node>>,
+}
+
+impl CastExpr {
+    pub fn new() -> Self {
+        Self {
+            expr: RefCell::new(Node::new(NodeKind::Root)),
+            cast_type: RefCell::new(None),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeIfExpr {
     pub cond: RefCell<Node>,
     pub then: RefCell<Node>,
-    pub else_: Option<RefCell<Node>>,
+    pub else_: RefCell<Option<Node>>,
+}
+
+impl NodeIfExpr {
+    pub fn new() -> NodeIfExpr {
+        NodeIfExpr {
+            cond: RefCell::new(Node::new(NodeKind::Root)),
+            then: RefCell::new(Node::new(NodeKind::Root)),
+            else_: RefCell::new(None),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AsmOutput {
     pub symbolic_name: String,
-    pub constraint: String,
+    pub constraint: RefCell<String>,
     pub var_name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AsmInput {
     pub symbolic_name: String,
-    pub constraint: String,
+    pub constraint: RefCell<String>,
     pub expr: RefCell<Node>,
 }
 
@@ -275,12 +427,25 @@ pub struct AsmToken {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AsmExpr {
-    pub asm_template: String,
-    pub offset_map: Vec<RefCell<SrcPos>>,
+    pub asm_template: RefCell<String>,
+    pub offset_map: RefCell<Vec<SrcPos>>,
     pub token_list: Vec<RefCell<AsmToken>>,
     pub output_list: Vec<RefCell<AsmOutput>>,
     pub input_list: Vec<RefCell<AsmInput>>,
     pub clobber_list: Vec<String>,
+}
+
+impl AsmExpr {
+    pub fn new() -> Self {
+        Self {
+            asm_template: RefCell::new(String::new()),
+            offset_map: RefCell::new(Vec::new()),
+            token_list: Vec::new(),
+            output_list: Vec::new(),
+            input_list: Vec::new(),
+            clobber_list: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -303,7 +468,7 @@ pub enum NodeData {
     CastExpr(RefCell<CastExpr>),
     IfExpr(RefCell<NodeIfExpr>),
     AsmExpr(RefCell<AsmExpr>),
-    StrLit(String),
+    StrLit(RefCell<String>),
     NumLit(String),
     BoolLit(bool),
     Ident(String),
@@ -436,7 +601,7 @@ impl NodeData {
         }
     }
 
-    pub fn str_lit(&self) -> &String {
+    pub fn str_lit(&self) -> &RefCell<String> {
         match self {
             NodeData::StrLit(str_lit) => str_lit,
             _ => panic!("NodeData::str_lit() called on non-str_lit node"),
@@ -468,6 +633,16 @@ pub struct Node {
 }
 
 impl Node {
+    pub fn new(kind: NodeKind) -> Node {
+        Node {
+            kind,
+            line: 0,
+            col: 0,
+            data: Box::new(NodeData::None),
+            owner: std::ptr::null_mut(),
+        }
+    }
+
     pub fn print_ast(&self, indent: usize) {
         for _ in 0..indent {
             print!(" ");
@@ -486,8 +661,8 @@ impl Node {
                     self.kind.to_str(),
                     self.data.fn_proto().borrow().name
                 );
-                for child in self.data.fn_proto().borrow().params.clone() {
-                    child.borrow().print_ast(indent + 2);
+                for child in self.data.fn_proto().borrow().params.borrow().clone() {
+                    child.print_ast(indent + 2);
                 }
                 self.data
                     .fn_proto()
@@ -552,8 +727,9 @@ impl Node {
                         .borrow()
                         .child_type
                         .clone()
-                        .unwrap()
                         .borrow()
+                        .as_ref()
+                        .unwrap()
                         .print_ast(indent + 2);
                 }
                 TypeKind::Array => {
@@ -563,16 +739,18 @@ impl Node {
                         .borrow()
                         .child_type
                         .clone()
-                        .unwrap()
                         .borrow()
+                        .as_ref()
+                        .unwrap()
                         .print_ast(indent + 2);
                     self.data
                         .type_()
                         .borrow()
                         .array_size
                         .clone()
-                        .unwrap()
                         .borrow()
+                        .as_ref()
+                        .unwrap()
                         .print_ast(indent + 2);
                 }
             },
@@ -586,19 +764,20 @@ impl Node {
                 println!(
                     "{} '{}'",
                     self.kind.to_str(),
-                    self.data.import().borrow().path
+                    self.data.import().borrow().path.borrow()
                 );
             }
             NodeKind::Return => {
                 println!("{}", self.kind.to_str());
-                if self.data.return_().borrow().expr.is_some() {
+                if self.data.return_().borrow().expr.borrow().is_some() {
                     self.data
                         .return_()
                         .borrow()
                         .expr
                         .clone()
-                        .unwrap()
                         .borrow()
+                        .as_ref()
+                        .unwrap()
                         .print_ast(indent + 2);
                 }
             }
@@ -608,24 +787,26 @@ impl Node {
                     self.kind.to_str(),
                     self.data.var_decl().borrow().name
                 );
-                if self.data.var_decl().borrow().var_type.is_some() {
+                if self.data.var_decl().borrow().var_type.borrow().is_some() {
                     self.data
                         .var_decl()
                         .borrow()
                         .var_type
                         .clone()
-                        .unwrap()
                         .borrow()
+                        .as_ref()
+                        .unwrap()
                         .print_ast(indent + 2);
                 }
-                if self.data.var_decl().borrow().expr.is_some() {
+                if self.data.var_decl().borrow().expr.borrow().is_some() {
                     self.data
                         .var_decl()
                         .borrow()
                         .expr
                         .clone()
-                        .unwrap()
                         .borrow()
+                        .as_ref()
+                        .unwrap()
                         .print_ast(indent + 2);
                 }
             }
@@ -669,8 +850,8 @@ impl Node {
                     .callee
                     .borrow()
                     .print_ast(indent + 2);
-                for arg in self.data.call_expr().borrow().args.clone() {
-                    arg.borrow().print_ast(indent + 2);
+                for arg in self.data.call_expr().borrow().args.borrow().to_vec() {
+                    arg.print_ast(indent + 2);
                 }
             }
             NodeKind::Ident => {
@@ -699,14 +880,15 @@ impl Node {
                     .expr
                     .borrow()
                     .print_ast(indent + 2);
-                if self.data.cast_expr().borrow().cast_type.is_some() {
+                if self.data.cast_expr().borrow().cast_type.borrow().is_some() {
                     self.data
                         .cast_expr()
                         .borrow()
                         .cast_type
                         .clone()
-                        .unwrap()
                         .borrow()
+                        .as_ref()
+                        .unwrap()
                         .print_ast(indent + 2);
                 }
             }
@@ -727,14 +909,15 @@ impl Node {
                     .then
                     .borrow()
                     .print_ast(indent + 2);
-                if self.data.if_expr().borrow().else_.is_some() {
+                if self.data.if_expr().borrow().else_.borrow().is_some() {
                     self.data
                         .if_expr()
                         .borrow()
                         .else_
                         .clone()
-                        .unwrap()
                         .borrow()
+                        .as_ref()
+                        .unwrap()
                         .print_ast(indent + 2);
                 }
             }
@@ -742,7 +925,7 @@ impl Node {
                 println!("{}", self.kind.to_str());
             }
             NodeKind::StrLit => {
-                println!("{} '{}'", self.kind.to_str(), self.data.str_lit());
+                println!("{} '{}'", self.kind.to_str(), self.data.str_lit().borrow());
             }
             NodeKind::NumLit => {
                 println!("{} {}", self.kind.to_str(), self.data.num_lit());
