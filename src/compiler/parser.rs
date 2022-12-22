@@ -70,11 +70,11 @@ impl<'a> ParseContext<'a> {
     }
 
     fn ast_asm_error(&self, node: &Node, offset: usize, msg: String) -> ! {
-        assert_eq!(node.kind, NodeKind::AsmExpr);
-        let src_pos = &node.data.asm_expr().borrow().offset_map.borrow().clone()[offset];
+        assert_eq!(node.kind(), NodeKind::AsmExpr);
+        let src_pos = &node.data().asm_expr().borrow().offset_map.borrow().clone()[offset];
         let err = ErrMsg {
-            line_start: src_pos.line,
-            col_start: src_pos.col,
+            line_start: src_pos.line.clone(),
+            col_start: src_pos.col.clone(),
             msg,
             path: self.owner.borrow().path.clone(),
             src: self.owner.borrow().src_code.clone(),
@@ -84,100 +84,108 @@ impl<'a> ParseContext<'a> {
     }
 
     fn create_node_no_line_info(&self, kind: NodeKind) -> Node {
-        let mut node = Node::new(kind);
+        let node = Node::new(kind);
         match kind {
             NodeKind::Root => {
-                node.data = Box::new(NodeData::Root(RefCell::new(NodeRoot::new())));
+                node.set_data(NodeData::Root(RefCell::new(NodeRoot::new())));
             }
             NodeKind::FnProto => {
-                node.data = Box::new(NodeData::FnProto(RefCell::new(NodeFnProto::new())));
+                node.set_data(NodeData::FnProto(RefCell::new(NodeFnProto::new())));
             }
             NodeKind::FnDef => {
-                node.data = Box::new(NodeData::FnDef(RefCell::new(NodeFnDef::new())));
+                node.set_data(NodeData::FnDef(RefCell::new(NodeFnDef::new())));
             }
             NodeKind::FnDecl => {
-                node.data = Box::new(NodeData::FnDecl(RefCell::new(NodeFnDecl::new())));
+                node.set_data(NodeData::FnDecl(RefCell::new(NodeFnDecl::new())));
             }
             NodeKind::ParamDecl => {
-                node.data = Box::new(NodeData::ParamDecl(RefCell::new(NodeParamDecl::new())));
+                node.set_data(NodeData::ParamDecl(RefCell::new(NodeParamDecl::new())));
             }
             NodeKind::Type => {
-                node.data = Box::new(NodeData::Type(RefCell::new(NodeType::new())));
+                node.set_data(NodeData::Type(RefCell::new(NodeType::new())));
             }
             NodeKind::Block => {
-                node.data = Box::new(NodeData::Block(RefCell::new(NodeBlock::new())));
+                node.set_data(NodeData::Block(RefCell::new(NodeBlock::new())));
             }
             NodeKind::Import => {
-                node.data = Box::new(NodeData::Import(RefCell::new(NodeImport::new())));
+                node.set_data(NodeData::Import(RefCell::new(NodeImport::new())));
             }
             NodeKind::Return => {
-                node.data = Box::new(NodeData::Return(RefCell::new(NodeReturn::new())));
+                node.set_data(NodeData::Return(RefCell::new(NodeReturn::new())));
             }
             NodeKind::VarDecl => {
-                node.data = Box::new(NodeData::VarDecl(RefCell::new(NodeVarDecl::new())));
+                node.set_data(NodeData::VarDecl(RefCell::new(NodeVarDecl::new())));
             }
             NodeKind::BinOpExpr => {
-                node.data = Box::new(NodeData::BinOpExpr(RefCell::new(NodeBinOpExpr::new())));
+                node.set_data(NodeData::BinOpExpr(RefCell::new(NodeBinOpExpr::new())));
             }
             NodeKind::UnaryOpExpr => {
-                node.data = Box::new(NodeData::UnaryOpExpr(RefCell::new(NodeUnaryOpExpr::new())));
+                node.set_data(NodeData::UnaryOpExpr(RefCell::new(NodeUnaryOpExpr::new())));
             }
             NodeKind::CallExpr => {
-                node.data = Box::new(NodeData::CallExpr(RefCell::new(NodeCallExpr::new())));
+                node.set_data(NodeData::CallExpr(RefCell::new(NodeCallExpr::new())));
             }
             NodeKind::Ident => {
-                node.data = Box::new(NodeData::Ident(String::new()));
+                node.set_data(NodeData::Ident(RefCell::new(String::new())));
             }
             NodeKind::ArrayAccessExpr => {
-                node.data = Box::new(NodeData::ArrayAccessExpr(RefCell::new(
+                node.set_data(NodeData::ArrayAccessExpr(RefCell::new(
                     NodeArrayAccessExpr::new(),
                 )));
             }
             NodeKind::CastExpr => {
-                node.data = Box::new(NodeData::CastExpr(RefCell::new(CastExpr::new())));
+                node.set_data(NodeData::CastExpr(RefCell::new(CastExpr::new())));
             }
             NodeKind::IfExpr => {
-                node.data = Box::new(NodeData::IfExpr(RefCell::new(NodeIfExpr::new())));
+                node.set_data(NodeData::IfExpr(RefCell::new(NodeIfExpr::new())));
             }
             NodeKind::AsmExpr => {
-                node.data = Box::new(NodeData::AsmExpr(RefCell::new(AsmExpr::new())));
+                node.set_data(NodeData::AsmExpr(RefCell::new(AsmExpr::new())));
             }
             NodeKind::StrLit => {
-                node.data = Box::new(NodeData::StrLit(RefCell::new(String::new())));
+                node.set_data(NodeData::StrLit(RefCell::new(String::new())));
             }
             NodeKind::NumLit => {
-                node.data = Box::new(NodeData::NumLit(String::new()));
+                node.set_data(NodeData::NumLit(RefCell::new(String::new())));
             }
             NodeKind::BoolLit => {
-                node.data = Box::new(NodeData::BoolLit(false));
+                node.set_data(NodeData::BoolLit(RefCell::new(false)));
             }
             NodeKind::Void => {}
         }
         node
     }
 
-    fn update_node_line_info(&self, node: &mut Node, token: &Token) {
-        node.line = token.start_line;
-        node.col = token.start_col;
+    fn update_node_line_info(&self, node: &Node, token: &Token) {
+        node.set_line(token.start_line);
+        node.set_col(token.start_col);
     }
 
     fn create_node(&self, kind: NodeKind, token: &Token) -> Node {
-        let mut node = self.create_node_no_line_info(kind);
-        self.update_node_line_info(&mut node, token);
+        let node = self.create_node_no_line_info(kind);
+        self.update_node_line_info(&node, token);
         node
     }
 
     fn create_node_with_node(&self, kind: NodeKind, node: &Node) -> Node {
-        let mut new_node = self.create_node_no_line_info(kind);
-        new_node.line = node.line;
-        new_node.col = node.col;
+        let new_node = self.create_node_no_line_info(kind);
+        new_node.set_line(node.line.borrow().clone());
+        new_node.set_col(node.col.borrow().clone());
         new_node
     }
 
     fn create_void_type_node(&self, token: &Token) -> Node {
         let node = self.create_node(NodeKind::Type, token);
-        node.data.type_().borrow_mut().kind = TypeKind::Primitive;
-        node.data.type_().borrow_mut().name = "void".to_string();
+        node.data
+            .borrow()
+            .type_()
+            .borrow()
+            .set_kind(TypeKind::Primitive);
+        node.data
+            .borrow()
+            .type_()
+            .borrow()
+            .set_name("void".to_string());
         node
     }
 
@@ -208,33 +216,66 @@ impl<'a> ParseContext<'a> {
 
         let node = self.create_node(NodeKind::Type, tok);
         if tok.kind == TokenKind::KwVoid {
-            node.data.type_().borrow_mut().kind = TypeKind::Primitive;
-            node.data.type_().borrow_mut().name = "void".to_string();
+            node.data
+                .borrow()
+                .type_()
+                .borrow()
+                .set_kind(TypeKind::Primitive);
+            node.data
+                .borrow()
+                .type_()
+                .borrow()
+                .set_name("void".to_string());
         } else if tok.kind == TokenKind::Ident {
-            node.data.type_().borrow_mut().kind = TypeKind::Primitive;
-            node.data.type_().borrow_mut().name = self.tok_val(tok).to_string();
+            node.data
+                .borrow()
+                .type_()
+                .borrow()
+                .set_kind(TypeKind::Primitive);
+            node.data
+                .borrow()
+                .type_()
+                .borrow()
+                .set_name(self.tok_val(tok).to_string());
         } else if tok.kind == TokenKind::Star {
-            node.data.type_().borrow_mut().kind = TypeKind::Pointer;
+            node.data
+                .borrow()
+                .type_()
+                .borrow()
+                .set_kind(TypeKind::Pointer);
             let const_or_mut = &self.tokens[tok_index];
             tok_index += 1;
             if const_or_mut.kind == TokenKind::KwMut {
-                node.data.type_().borrow_mut().is_const = false;
+                node.data.borrow().type_().borrow().set_is_const(false);
             } else if const_or_mut.kind == TokenKind::KwConst {
-                node.data.type_().borrow_mut().is_const = true;
+                node.data.borrow().type_().borrow().set_is_const(true);
             } else {
                 self.invalid_token_error(const_or_mut);
             }
-            node.data.type_().borrow_mut().child_type =
-                RefCell::new(Some(self.parse_type(tok_index, &mut tok_index)));
+            node.data
+                .borrow()
+                .type_()
+                .borrow()
+                .set_child_type(self.parse_type(tok_index, &mut tok_index));
         } else if tok.kind == TokenKind::LBracket {
-            node.data.type_().borrow_mut().kind = TypeKind::Array;
-            node.data.type_().borrow_mut().child_type =
-                RefCell::new(Some(self.parse_type(tok_index, &mut tok_index)));
+            node.data
+                .borrow()
+                .type_()
+                .borrow()
+                .set_kind(TypeKind::Array);
+            node.data
+                .borrow()
+                .type_()
+                .borrow()
+                .set_child_type(self.parse_type(tok_index, &mut tok_index));
             let semi = &self.tokens[tok_index];
             tok_index += 1;
             self.expect_token(semi, TokenKind::Semicolon);
-            node.data.type_().borrow_mut().array_size =
-                RefCell::new(self.parse_expr(&mut tok_index, true));
+            node.data
+                .borrow()
+                .type_()
+                .borrow()
+                .set_array_size(self.parse_expr(&mut tok_index, true).unwrap());
             let rbracket = &self.tokens[tok_index];
             tok_index += 1;
             self.expect_token(rbracket, TokenKind::RBracket);
@@ -253,12 +294,19 @@ impl<'a> ParseContext<'a> {
 
         if param_name.kind == TokenKind::Ident {
             let node = self.create_node(NodeKind::ParamDecl, param_name);
-            node.data.param_decl().borrow_mut().name = self.tok_val(param_name).to_string();
+            node.data
+                .borrow()
+                .param_decl()
+                .borrow()
+                .set_name(self.tok_val(param_name).to_string());
             let colon = &self.tokens[tok_index];
             tok_index += 1;
             self.expect_token(colon, TokenKind::Colon);
-            node.data.param_decl().borrow_mut().param_type =
-                RefCell::new(self.parse_type(tok_index, &mut tok_index));
+            node.data
+                .borrow()
+                .param_decl()
+                .borrow()
+                .set_param_type(self.parse_type(tok_index, &mut tok_index));
             *new_tok_index = tok_index;
             Some(node)
         } else {
@@ -270,7 +318,7 @@ impl<'a> ParseContext<'a> {
         &self,
         tok_index: usize,
         new_tok_index: &mut usize,
-        params: &RefCell<Vec<Node>>,
+        params: &NodeFnProto,
     ) {
         let mut tok_index = tok_index;
         let lparen = &self.tokens[tok_index];
@@ -287,7 +335,7 @@ impl<'a> ParseContext<'a> {
         loop {
             let param_decl_node = self.parse_param_decl(tok_index, &mut tok_index);
             if param_decl_node.is_some() {
-                params.borrow_mut().push(param_decl_node.unwrap());
+                params.push_param(param_decl_node.unwrap());
             }
 
             let token = &self.tokens[tok_index];
@@ -309,34 +357,47 @@ impl<'a> ParseContext<'a> {
             let name_tok: &Token;
             let tok = &self.tokens[*tok_index];
             if tok.kind == TokenKind::KwMut {
-                node.data.var_decl().borrow_mut().is_const = false;
+                node.data.borrow().var_decl().borrow().set_is_const(false);
                 *tok_index += 1;
                 name_tok = &self.tokens[*tok_index];
                 self.expect_token(name_tok, TokenKind::Ident);
             } else if tok.kind == TokenKind::Ident {
-                node.data.var_decl().borrow_mut().is_const = true;
+                node.data.borrow().var_decl().borrow().set_is_const(true);
                 name_tok = tok;
             } else {
                 self.invalid_token_error(tok);
             }
             *tok_index += 1;
-            node.data.var_decl().borrow_mut().name = self.tok_val(name_tok).to_string();
+            node.data
+                .borrow()
+                .var_decl()
+                .borrow()
+                .set_name(self.tok_val(name_tok).to_string());
 
             let assign_or_colon = &self.tokens[*tok_index];
             *tok_index += 1;
             if assign_or_colon.kind == TokenKind::Assign {
-                node.data.var_decl().borrow_mut().expr =
-                    RefCell::new(self.parse_expr(tok_index, true));
+                node.data
+                    .borrow()
+                    .var_decl()
+                    .borrow()
+                    .set_expr(self.parse_expr(tok_index, true).unwrap());
                 return Some(node);
             } else if assign_or_colon.kind == TokenKind::Colon {
-                node.data.var_decl().borrow_mut().var_type =
-                    RefCell::new(Some(self.parse_type(*tok_index, tok_index)));
+                node.data
+                    .borrow()
+                    .var_decl()
+                    .borrow()
+                    .set_var_type(self.parse_type(*tok_index, tok_index));
 
                 let assign = &self.tokens[*tok_index];
                 if assign.kind == TokenKind::Assign {
                     *tok_index += 1;
-                    node.data.var_decl().borrow_mut().expr =
-                        RefCell::new(self.parse_expr(tok_index, true));
+                    node.data
+                        .borrow()
+                        .var_decl()
+                        .borrow()
+                        .set_expr(self.parse_expr(tok_index, true).unwrap());
                 }
                 return Some(node);
             } else {
@@ -378,12 +439,20 @@ impl<'a> ParseContext<'a> {
         *tok_index += 1;
 
         let node = self.create_node(NodeKind::IfExpr, if_tok);
-        node.data.if_expr().borrow_mut().cond =
-            RefCell::new(self.parse_expr(tok_index, true).unwrap());
-        node.data.if_expr().borrow_mut().then =
-            RefCell::new(self.parse_block_expr(tok_index, true).unwrap());
-        node.data.if_expr().borrow_mut().else_ =
-            RefCell::new(self.parse_else_or_else_if(tok_index, false));
+        node.data
+            .borrow()
+            .if_expr()
+            .borrow()
+            .set_cond(self.parse_expr(tok_index, true).unwrap());
+        node.data
+            .borrow()
+            .if_expr()
+            .borrow()
+            .set_then(self.parse_block_expr(tok_index, true).unwrap());
+        if let Some(else_expr) = self.parse_else_or_else_if(tok_index, false) {
+            node.data.borrow().if_expr().borrow().set_else(else_expr);
+        }
+
         Some(node)
     }
 
@@ -411,7 +480,10 @@ impl<'a> ParseContext<'a> {
         if return_tok.kind == TokenKind::KwReturn {
             *tok_index += 1;
             let node = self.create_node(NodeKind::Return, return_tok);
-            node.data.return_().borrow_mut().expr = RefCell::new(self.parse_expr(tok_index, false));
+            if let Some(expr) = self.parse_expr(tok_index, false) {
+                node.data.borrow().return_().borrow().set_expr(expr);
+            }
+
             Some(node)
         } else if mandatory {
             self.invalid_token_error(return_tok);
@@ -444,14 +516,18 @@ impl<'a> ParseContext<'a> {
         let tok = &self.tokens[*tok_index];
 
         if tok.kind == TokenKind::NumLit {
-            let mut node = self.create_node(NodeKind::NumLit, tok);
-            node.data = Box::new(NodeData::NumLit(self.tok_val(tok).to_string()));
+            let node = self.create_node(NodeKind::NumLit, tok);
+            node.set_data(NodeData::NumLit(RefCell::new(
+                self.tok_val(tok).to_string(),
+            )));
             *tok_index += 1;
             return Some(node);
         } else if tok.kind == TokenKind::StrLit {
-            let mut node = self.create_node(NodeKind::StrLit, tok);
-            node.data = Box::new(NodeData::StrLit(RefCell::new(String::new())));
-            self.parse_string_literal(tok, node.data.str_lit(), None);
+            let node = self.create_node(NodeKind::StrLit, tok);
+            node.set_data(NodeData::StrLit(RefCell::new(
+                self.tok_val(tok).to_string(),
+            )));
+            self.parse_string_literal(tok, node.data.borrow().str_lit(), None);
             *tok_index += 1;
             return Some(node);
         } else if tok.kind == TokenKind::KwVoid {
@@ -459,18 +535,18 @@ impl<'a> ParseContext<'a> {
             *tok_index += 1;
             return Some(node);
         } else if tok.kind == TokenKind::KwTrue {
-            let mut node = self.create_node(NodeKind::BoolLit, tok);
-            node.data = Box::new(NodeData::BoolLit(true));
+            let node = self.create_node(NodeKind::BoolLit, tok);
+            node.set_data(NodeData::BoolLit(RefCell::new(true)));
             *tok_index += 1;
             return Some(node);
         } else if tok.kind == TokenKind::KwFalse {
-            let mut node = self.create_node(NodeKind::BoolLit, tok);
-            node.data = Box::new(NodeData::BoolLit(false));
+            let node = self.create_node(NodeKind::BoolLit, tok);
+            node.set_data(NodeData::BoolLit(RefCell::new(false)));
             *tok_index += 1;
             return Some(node);
         } else if tok.kind == TokenKind::Ident {
-            let mut node = self.create_node(NodeKind::Ident, tok);
-            node.data = Box::new(NodeData::Ident(self.tok_val(tok).to_string()));
+            let node = self.create_node(NodeKind::Ident, tok);
+            node.set_data(NodeData::Ident(RefCell::new(self.tok_val(tok).to_string())));
             *tok_index += 1;
             return Some(node);
         }
@@ -487,12 +563,7 @@ impl<'a> ParseContext<'a> {
         self.invalid_token_error(tok);
     }
 
-    fn parse_call_params(
-        &self,
-        tok_index: usize,
-        new_tok_index: &mut usize,
-        params: &RefCell<Vec<Node>>,
-    ) {
+    fn parse_call_params(&self, tok_index: usize, new_tok_index: &mut usize, call: &NodeCallExpr) {
         let mut tok_index = tok_index;
         let tok = &self.tokens[tok_index];
         if tok.kind == TokenKind::RParen {
@@ -503,7 +574,7 @@ impl<'a> ParseContext<'a> {
 
         loop {
             let expr = self.parse_expr(&mut tok_index, true);
-            params.borrow_mut().push(expr.unwrap());
+            call.add_arg(expr.unwrap());
             let tok = &self.tokens[tok_index];
             tok_index += 1;
             if tok.kind == TokenKind::RParen {
@@ -525,20 +596,31 @@ impl<'a> ParseContext<'a> {
         if tok.kind == TokenKind::LParen {
             *tok_index += 1;
             let node = self.create_node(NodeKind::CallExpr, tok);
-            node.data.call_expr().borrow_mut().callee = RefCell::new(primary.unwrap());
+            node.data
+                .borrow()
+                .call_expr()
+                .borrow()
+                .set_callee(primary.unwrap());
             self.parse_call_params(
                 *tok_index,
                 tok_index,
-                &node.data.call_expr().borrow_mut().args,
+                &node.data.borrow().call_expr().borrow(),
             );
 
             Some(node)
         } else if tok.kind == TokenKind::LBracket {
             *tok_index += 1;
             let node = self.create_node(NodeKind::ArrayAccessExpr, tok);
-            node.data.array_access_expr().borrow_mut().array = RefCell::new(primary.unwrap());
-            node.data.array_access_expr().borrow_mut().index =
-                RefCell::new(self.parse_expr(tok_index, true).unwrap());
+            node.data
+                .borrow()
+                .array_access_expr()
+                .borrow()
+                .set_array(primary.unwrap());
+            node.data
+                .borrow()
+                .array_access_expr()
+                .borrow()
+                .set_index(self.parse_expr(tok_index, true).unwrap());
             let rbracket = &self.tokens[*tok_index];
             *tok_index += 1;
             self.expect_token(rbracket, TokenKind::RBracket);
@@ -581,8 +663,12 @@ impl<'a> ParseContext<'a> {
         let unary_expr = self.parse_post_expr(tok_index, true);
 
         let node = self.create_node(NodeKind::UnaryOpExpr, tok);
-        node.data.unary_op_expr().borrow_mut().expr = RefCell::new(unary_expr.unwrap());
-        node.data.unary_op_expr().borrow_mut().op = unary_op;
+        node.data
+            .borrow()
+            .unary_op_expr()
+            .borrow()
+            .set_expr(unary_expr.unwrap());
+        node.data.borrow().unary_op_expr().borrow().set_op(unary_op);
         Some(node)
     }
 
@@ -599,9 +685,16 @@ impl<'a> ParseContext<'a> {
         *tok_index += 1;
 
         let node = self.create_node(NodeKind::CastExpr, as_kw);
-        node.data.cast_expr().borrow_mut().expr = RefCell::new(un.unwrap());
-        node.data.cast_expr().borrow_mut().cast_type =
-            RefCell::new(Some(self.parse_type(*tok_index, tok_index)));
+        node.data
+            .borrow()
+            .cast_expr()
+            .borrow()
+            .set_expr(un.unwrap());
+        node.data
+            .borrow()
+            .cast_expr()
+            .borrow()
+            .set_cast_type(self.parse_type(*tok_index, tok_index));
         Some(node)
     }
 
@@ -644,9 +737,17 @@ impl<'a> ParseContext<'a> {
         let op2 = self.parse_cast_expr(tok_index, true);
 
         let node = self.create_node(NodeKind::BinOpExpr, tok);
-        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
-        node.data.bin_op_expr().borrow_mut().op = mul_op;
-        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_lhs(op1.unwrap());
+        node.data.borrow().bin_op_expr().borrow().set_op(mul_op);
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_rhs(op2.unwrap());
         Some(node)
     }
 
@@ -687,9 +788,17 @@ impl<'a> ParseContext<'a> {
         let op2 = self.parse_mul_expr(tok_index, true);
 
         let node = self.create_node(NodeKind::BinOpExpr, tok);
-        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
-        node.data.bin_op_expr().borrow_mut().op = add_op;
-        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_lhs(op1.unwrap());
+        node.data.borrow().bin_op_expr().borrow().set_op(add_op);
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_rhs(op2.unwrap());
         Some(node)
     }
 
@@ -730,9 +839,21 @@ impl<'a> ParseContext<'a> {
         let op2 = self.parse_add_expr(tok_index, true);
 
         let node = self.create_node(NodeKind::BinOpExpr, tok);
-        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
-        node.data.bin_op_expr().borrow_mut().op = bit_shift_op;
-        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_lhs(op1.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_op(bit_shift_op);
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_rhs(op2.unwrap());
         Some(node)
     }
 
@@ -751,9 +872,21 @@ impl<'a> ParseContext<'a> {
         let op2 = self.parse_bit_shift_expr(tok_index, true);
 
         let node = self.create_node(NodeKind::BinOpExpr, tok);
-        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
-        node.data.bin_op_expr().borrow_mut().op = BinOpKind::BoolAnd;
-        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_lhs(op1.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_op(BinOpKind::BoolAnd);
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_rhs(op2.unwrap());
         Some(node)
     }
 
@@ -772,9 +905,21 @@ impl<'a> ParseContext<'a> {
         let op2 = self.parse_bin_and_expr(tok_index, true);
 
         let node = self.create_node(NodeKind::BinOpExpr, tok);
-        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
-        node.data.bin_op_expr().borrow_mut().op = BinOpKind::BoolAnd;
-        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_lhs(op1.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_op(BinOpKind::BoolAnd);
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_rhs(op2.unwrap());
         Some(node)
     }
 
@@ -793,9 +938,21 @@ impl<'a> ParseContext<'a> {
         let op2 = self.parse_bin_xor_expr(tok_index, true);
 
         let node = self.create_node(NodeKind::BinOpExpr, tok);
-        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
-        node.data.bin_op_expr().borrow_mut().op = BinOpKind::Or;
-        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_lhs(op1.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_op(BinOpKind::Or);
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_rhs(op2.unwrap());
         Some(node)
     }
 
@@ -840,9 +997,17 @@ impl<'a> ParseContext<'a> {
 
         let op2 = self.parse_bin_or_expr(tok_index, true);
         let node = self.create_node(NodeKind::BinOpExpr, tok);
-        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
-        node.data.bin_op_expr().borrow_mut().op = cmp_op;
-        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_lhs(op1.unwrap());
+        node.data.borrow().bin_op_expr().borrow().set_op(cmp_op);
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_rhs(op2.unwrap());
         Some(node)
     }
 
@@ -861,9 +1026,21 @@ impl<'a> ParseContext<'a> {
         let op2 = self.parse_cmp_expr(tok_index, true);
 
         let node = self.create_node(NodeKind::BinOpExpr, tok);
-        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
-        node.data.bin_op_expr().borrow_mut().op = BinOpKind::BoolAnd;
-        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_lhs(op1.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_op(BinOpKind::BoolAnd);
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_rhs(op2.unwrap());
         Some(node)
     }
 
@@ -882,9 +1059,21 @@ impl<'a> ParseContext<'a> {
         let op2 = self.parse_bool_and_expr(tok_index, true);
 
         let node = self.create_node(NodeKind::BinOpExpr, tok);
-        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(op1.unwrap());
-        node.data.bin_op_expr().borrow_mut().op = BinOpKind::BoolOr;
-        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(op2.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_lhs(op1.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_op(BinOpKind::BoolOr);
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_rhs(op2.unwrap());
         Some(node)
     }
 
@@ -902,14 +1091,27 @@ impl<'a> ParseContext<'a> {
 
         let rhs = self.parse_bool_or_expr(tok_index, true);
         let node = self.create_node(NodeKind::BinOpExpr, tok);
-        node.data.bin_op_expr().borrow_mut().lhs = RefCell::new(lhs.unwrap());
-        node.data.bin_op_expr().borrow_mut().op = BinOpKind::Assign;
-        node.data.bin_op_expr().borrow_mut().rhs = RefCell::new(rhs.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_lhs(lhs.unwrap());
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_op(BinOpKind::Assign);
+        node.data
+            .borrow()
+            .bin_op_expr()
+            .borrow()
+            .set_rhs(rhs.unwrap());
         Some(node)
     }
 
     fn parse_asm_template(&self, node: &Node) {
-        let asm_template = &node.data.asm_expr().borrow_mut().asm_template;
+        let binding = node.data.borrow();
+        let asm_expr = binding.asm_expr().borrow();
 
         enum State {
             Start,
@@ -918,42 +1120,42 @@ impl<'a> ParseContext<'a> {
             Var,
         }
 
-        let tok_list = &mut node.data.asm_expr().borrow_mut().token_list;
-        assert_eq!(tok_list.len(), 0);
-
-        let mut cur_tok: Option<&RefCell<AsmToken>> = None;
+        assert_eq!(asm_expr.token_list.borrow().len(), 0);
 
         let mut state = State::Start;
 
         let mut i = 0;
-        while i < asm_template.borrow().len() {
-            let c = asm_template.borrow().chars().nth(i).unwrap();
+        while i < asm_expr.asm_template.borrow().len() {
+            let c = asm_expr.asm_template.borrow().chars().nth(i).unwrap();
             match state {
                 State::Start => {
                     if c == '%' {
-                        tok_list.push(RefCell::new(AsmToken {
-                            kind: AsmTokenKind::Percent,
-                            start: i,
-                            end: 0,
-                        }));
+                        let new_tok = AsmToken::new();
+                        new_tok.set_kind(AsmTokenKind::Percent);
+                        new_tok.set_start(i);
+                        new_tok.set_end(0);
+                        asm_expr.add_token_list(new_tok);
                         state = State::Percent;
-                        cur_tok = tok_list.last();
                     } else {
-                        tok_list.push(RefCell::new(AsmToken {
-                            kind: AsmTokenKind::Template,
-                            start: i,
-                            end: 0,
-                        }));
+                        let new_tok = AsmToken::new();
+                        new_tok.set_kind(AsmTokenKind::Template);
+                        new_tok.set_start(i);
+                        new_tok.set_end(0);
+                        asm_expr.add_token_list(new_tok);
                         state = State::Template;
-                        cur_tok = tok_list.last();
                     }
                 }
                 State::Percent => {
                     if c == '%' {
-                        cur_tok.unwrap().borrow_mut().end = i;
+                        asm_expr.token_list.borrow().last().unwrap().set_end(i);
                         state = State::Start;
                     } else if c == '[' {
-                        cur_tok.unwrap().borrow_mut().kind = AsmTokenKind::Var;
+                        asm_expr
+                            .token_list
+                            .borrow()
+                            .last()
+                            .unwrap()
+                            .set_kind(AsmTokenKind::Var);
                         state = State::Var;
                     } else {
                         self.ast_asm_error(node, i, "invalid asm template".to_string());
@@ -961,15 +1163,14 @@ impl<'a> ParseContext<'a> {
                 }
                 State::Template => {
                     if c == '%' {
-                        cur_tok.unwrap().borrow_mut().end = i;
+                        asm_expr.token_list.borrow().last().unwrap().set_end(i);
                         i -= 1;
-                        cur_tok = None;
                         state = State::Start;
                     }
                 }
                 State::Var => {
                     if c == ']' {
-                        cur_tok.unwrap().borrow_mut().end = i;
+                        asm_expr.token_list.borrow().last().unwrap().set_end(i);
                         state = State::Start;
                     } else if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' {
                         // do nothing
@@ -986,12 +1187,17 @@ impl<'a> ParseContext<'a> {
             State::Percent | State::Var => {
                 self.ast_asm_error(
                     node,
-                    asm_template.borrow().len(),
+                    asm_expr.asm_template.borrow().len(),
                     "invalid asm template".to_string(),
                 );
             }
             State::Template => {
-                cur_tok.unwrap().borrow_mut().end = asm_template.borrow().len();
+                asm_expr
+                    .token_list
+                    .borrow()
+                    .last()
+                    .unwrap()
+                    .set_end(asm_expr.asm_template.borrow().len());
             }
         }
     }
@@ -1014,17 +1220,16 @@ impl<'a> ParseContext<'a> {
         let out_ident = self.eat_token(tok_index, TokenKind::Ident);
         self.eat_token(tok_index, TokenKind::RParen);
 
-        let output = AsmOutput {
-            symbolic_name: self.tok_val(&alias).to_string(),
-            constraint: RefCell::new(String::new()),
-            var_name: self.tok_val(&out_ident).to_string(),
-        };
+        let output = AsmOutput::new();
+        output.set_symbolic_name(self.tok_val(&alias).to_string());
+        output.set_var_name(self.tok_val(&out_ident).to_string());
+
         self.parse_string_literal(&constraint, &output.constraint, None);
         node.data
+            .borrow()
             .asm_expr()
-            .borrow_mut()
-            .output_list
-            .push(RefCell::new(output));
+            .borrow()
+            .add_output_list(output);
     }
 
     fn parse_asm_input_item(&self, tok_index: &mut usize, node: &Node) {
@@ -1038,17 +1243,12 @@ impl<'a> ParseContext<'a> {
         let expr = self.parse_expr(tok_index, true);
         self.eat_token(tok_index, TokenKind::RParen);
 
-        let input = AsmInput {
-            symbolic_name: self.tok_val(&alias).to_string(),
-            constraint: RefCell::new(String::new()),
-            expr: RefCell::new(expr.unwrap()),
-        };
+        let input = AsmInput::new();
+        input.set_symbolic_name(self.tok_val(&alias).to_string());
+        input.set_expr(expr.unwrap());
+
         self.parse_string_literal(&constraint, &input.constraint, None);
-        node.data
-            .asm_expr()
-            .borrow_mut()
-            .input_list
-            .push(RefCell::new(input));
+        node.data.borrow().asm_expr().borrow().add_input_list(input);
     }
 
     fn parse_asm_clobbers(&self, tok_index: &mut usize, node: &Node) {
@@ -1066,10 +1266,10 @@ impl<'a> ParseContext<'a> {
             let clobber = RefCell::new(String::new());
             self.parse_string_literal(str, &clobber, None);
             node.data
+                .borrow()
                 .asm_expr()
-                .borrow_mut()
-                .clobber_list
-                .push(clobber.borrow().clone());
+                .borrow()
+                .add_clobber_list(clobber.borrow().clone());
 
             let comma = &self.tokens[*tok_index];
             if comma.kind == TokenKind::Comma {
@@ -1131,7 +1331,11 @@ impl<'a> ParseContext<'a> {
         }
 
         let node = self.create_node(NodeKind::AsmExpr, asm_tok);
-        node.data.asm_expr().borrow_mut().asm_template = RefCell::new(String::new());
+        node.data
+            .borrow()
+            .asm_expr()
+            .borrow()
+            .set_asm_template(String::new());
         *tok_index += 1;
 
         let lparen = &self.tokens[*tok_index];
@@ -1144,8 +1348,8 @@ impl<'a> ParseContext<'a> {
 
         self.parse_string_literal(
             asm_str,
-            &node.data.asm_expr().borrow_mut().asm_template,
-            Some(&node.data.asm_expr().borrow_mut().offset_map),
+            &node.data.borrow().asm_expr().borrow().asm_template,
+            Some(&node.data.borrow().asm_expr().borrow().offset_map),
         );
         self.parse_asm_template(&node);
         self.parse_asm_output(tok_index, &node);
@@ -1165,10 +1369,9 @@ impl<'a> ParseContext<'a> {
     ) {
         let mut escape = false;
         let mut first = true;
-        let mut pos = SrcPos {
-            line: token.start_line,
-            col: token.start_col,
-        };
+        let mut pos = SrcPos::new();
+        pos.set_line(token.start_line);
+        pos.set_col(token.start_col);
         let mut i = token.start_pos;
         while i < token.end_pos - 1 {
             let c = self.src.chars().nth(i).unwrap();
@@ -1220,10 +1423,10 @@ impl<'a> ParseContext<'a> {
                 }
             }
             if c == '\n' {
-                pos.line += 1;
-                pos.col = 0;
+                pos.set_line(pos.line.clone() + 1);
+                pos.set_col(0);
             } else {
-                pos.col += 1;
+                pos.set_col(pos.col.clone() + 1);
             }
             i += 1;
         }
@@ -1280,11 +1483,7 @@ impl<'a> ParseContext<'a> {
                     }
                 }
             }
-            node.data
-                .block()
-                .borrow_mut()
-                .children
-                .push(RefCell::new(stmt.unwrap()));
+            node.data.borrow().block().borrow().push(stmt.unwrap());
             last_tok = &self.tokens[*tok_index];
 
             if last_tok.kind == TokenKind::RBrace {
@@ -1317,26 +1516,40 @@ impl<'a> ParseContext<'a> {
         }
 
         let node = self.create_node(NodeKind::FnProto, token);
-        node.data.fn_proto().borrow_mut().visib_mod = visib_mod;
+        node.data
+            .borrow()
+            .fn_proto()
+            .borrow()
+            .set_visib_mod(visib_mod);
 
         let name_token = &self.tokens[*tok_index];
         *tok_index += 1;
         self.expect_token(name_token, TokenKind::Ident);
-        node.data.fn_proto().borrow_mut().name = self.tok_val(name_token).to_string();
+        node.data
+            .borrow()
+            .fn_proto()
+            .borrow()
+            .set_name(self.tok_val(name_token).to_string());
         self.parse_param_decl_list(
             *tok_index,
             tok_index,
-            &node.data.fn_proto().borrow_mut().params,
+            &node.data.borrow().fn_proto().borrow(),
         );
 
         let arrow = &self.tokens[*tok_index];
         if arrow.kind == TokenKind::Arrow {
             *tok_index += 1;
-            node.data.fn_proto().borrow_mut().ret_type =
-                RefCell::new(self.parse_type(*tok_index, tok_index));
+            node.data
+                .borrow()
+                .fn_proto()
+                .borrow()
+                .set_ret_type(self.parse_type(*tok_index, tok_index));
         } else {
-            node.data.fn_proto().borrow_mut().ret_type =
-                RefCell::new(self.create_void_type_node(arrow));
+            node.data
+                .borrow()
+                .fn_proto()
+                .borrow()
+                .set_ret_type(self.create_void_type_node(arrow));
         }
         Some(node)
     }
@@ -1348,9 +1561,16 @@ impl<'a> ParseContext<'a> {
         }
 
         let node = self.create_node_with_node(NodeKind::FnDef, &fn_proto.as_ref().unwrap());
-        node.data.fn_def().borrow_mut().proto = RefCell::new(fn_proto.unwrap());
-        node.data.fn_def().borrow_mut().body =
-            RefCell::new(self.parse_block(tok_index, true).unwrap());
+        node.data
+            .borrow()
+            .fn_def()
+            .borrow()
+            .set_proto(fn_proto.unwrap());
+        node.data
+            .borrow()
+            .fn_def()
+            .borrow()
+            .set_body(self.parse_block(tok_index, true).unwrap());
 
         Some(node)
     }
@@ -1365,23 +1585,23 @@ impl<'a> ParseContext<'a> {
 
         let node = self.create_node(NodeKind::Import, tok);
         let str = &self.tokens[*tok_index];
-        self.parse_string_literal(str, &node.data.import().borrow_mut().path, None);
+        self.parse_string_literal(str, &node.data.borrow().import().borrow().path, None);
         *tok_index += 1;
 
         Some(node)
     }
 
-    fn parse_top_level_decls(&mut self, tok_index: &mut usize, children: &mut Vec<RefCell<Node>>) {
+    fn parse_top_level_decls(&mut self, tok_index: &mut usize, root: &NodeRoot) {
         loop {
             let fn_def_node = self.parse_fn_def(tok_index, false);
             if fn_def_node.is_some() {
-                children.push(RefCell::new(fn_def_node.unwrap()));
+                root.push(fn_def_node.unwrap());
                 continue;
             }
 
             let import_node = self.parse_import(tok_index);
             if import_node.is_some() {
-                children.push(RefCell::new(import_node.unwrap()));
+                root.push(import_node.unwrap());
                 continue;
             }
 
@@ -1391,7 +1611,7 @@ impl<'a> ParseContext<'a> {
 
     fn parse_root(&mut self, tok_index: &mut usize) {
         let node = self.create_node(NodeKind::Root, &self.tokens[*tok_index]);
-        self.parse_top_level_decls(tok_index, &mut node.data.root().borrow_mut().children);
+        self.parse_top_level_decls(tok_index, &node.data.borrow().root().borrow());
         if *tok_index != self.tokens.len() - 1 {
             self.invalid_token_error(&self.tokens[*tok_index]);
         }
