@@ -1,0 +1,6 @@
+@import "std"
+
+pub fn main() {
+  let x: isize = -10
+  println("Hello, world!")
+}

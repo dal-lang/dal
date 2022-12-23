@@ -12,9 +12,10 @@ use crate::{
 use super::{
     ast::{
         AsmExpr, AsmInput, AsmOutput, BinOpKind, CastExpr, FnProtoVisibMod, Node,
-        NodeArrayAccessExpr, NodeBinOpExpr, NodeBlock, NodeCallExpr, NodeData, NodeFnDecl,
-        NodeFnDef, NodeFnProto, NodeIfExpr, NodeImport, NodeKind, NodeParamDecl, NodeReturn,
-        NodeRoot, NodeType, NodeUnaryOpExpr, NodeVarDecl, SrcPos, TypeKind, UnaryOpKind,
+        NodeArrayAccessExpr, NodeBinOpExpr, NodeBlock, NodeCallExpr, NodeData, NodeExtern,
+        NodeFnDecl, NodeFnDef, NodeFnProto, NodeIfExpr, NodeImport, NodeKind, NodeParamDecl,
+        NodeReturn, NodeRoot, NodeType, NodeUnaryOpExpr, NodeVarDecl, SrcPos, TypeKind,
+        UnaryOpKind,
     },
     tokenizer::{Token, TokenKind},
 };
@@ -106,6 +107,9 @@ impl<'a> ParseContext<'a> {
             }
             NodeKind::Block => {
                 node.set_data(NodeData::Block(RefCell::new(NodeBlock::new())));
+            }
+            NodeKind::ExternBlock => {
+                node.set_data(NodeData::ExternBlock(RefCell::new(NodeExtern::new())));
             }
             NodeKind::Import => {
                 node.set_data(NodeData::Import(RefCell::new(NodeImport::new())));
@@ -524,9 +528,7 @@ impl<'a> ParseContext<'a> {
             return Some(node);
         } else if tok.kind == TokenKind::StrLit {
             let node = self.create_node(NodeKind::StrLit, tok);
-            node.set_data(NodeData::StrLit(RefCell::new(
-                self.tok_val(tok).to_string(),
-            )));
+            node.set_data(NodeData::StrLit(RefCell::new(String::new())));
             self.parse_string_literal(tok, node.data.borrow().str_lit(), None);
             *tok_index += 1;
             return Some(node);
@@ -1591,6 +1593,50 @@ impl<'a> ParseContext<'a> {
         Some(node)
     }
 
+    fn parse_fn_decl(&self, tok_index: usize, new_tok_index: &mut usize) -> Option<Node> {
+        let mut tok_index = tok_index;
+        let fn_proto = self.parse_fn_proto(&mut tok_index, false);
+        let node = self.create_node_with_node(NodeKind::FnDecl, &fn_proto.as_ref().unwrap());
+        *new_tok_index = tok_index;
+        node.data
+            .borrow()
+            .fn_decl()
+            .borrow()
+            .set_proto(fn_proto.unwrap());
+        Some(node)
+    }
+
+    fn parse_extern(&self, tok_index: &mut usize, mandatory: bool) -> Option<Node> {
+        let tok = &self.tokens[*tok_index];
+        if tok.kind != TokenKind::KwExtern {
+            if mandatory {
+                self.invalid_token_error(tok);
+            }
+            return None;
+        }
+        *tok_index += 1;
+
+        let node = self.create_node(NodeKind::ExternBlock, tok);
+        let lbrace = &self.tokens[*tok_index];
+        *tok_index += 1;
+        self.expect_token(lbrace, TokenKind::LBrace);
+
+        loop {
+            let tok = &self.tokens[*tok_index];
+            if tok.kind == TokenKind::RBrace {
+                *tok_index += 1;
+                return Some(node);
+            } else {
+                let child = self.parse_fn_decl(*tok_index, tok_index);
+                node.data
+                    .borrow()
+                    .extern_block()
+                    .borrow()
+                    .push(child.unwrap());
+            }
+        }
+    }
+
     fn parse_top_level_decls(&mut self, tok_index: &mut usize, root: &NodeRoot) {
         loop {
             let fn_def_node = self.parse_fn_def(tok_index, false);
@@ -1602,6 +1648,12 @@ impl<'a> ParseContext<'a> {
             let import_node = self.parse_import(tok_index);
             if import_node.is_some() {
                 root.push(import_node.unwrap());
+                continue;
+            }
+
+            let extern_node = self.parse_extern(tok_index, false);
+            if extern_node.is_some() {
+                root.push(extern_node.unwrap());
                 continue;
             }
 

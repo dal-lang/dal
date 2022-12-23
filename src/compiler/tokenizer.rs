@@ -34,6 +34,7 @@ pub enum TokenKind {
     KwAsm,
     KwConst,
     KwElse,
+    KwExtern,
     KwFalse,
     KwFn,
     KwIf,
@@ -89,6 +90,7 @@ impl TokenKind {
             TokenKind::KwAsm => "KwAsm",
             TokenKind::KwConst => "KwConst",
             TokenKind::KwElse => "KwElse",
+            TokenKind::KwExtern => "KwExtern",
             TokenKind::KwFalse => "KwFalse",
             TokenKind::KwFn => "KwFn",
             TokenKind::KwIf => "KwIf",
@@ -264,6 +266,7 @@ impl<'a> Tokenize<'a> {
             "as" => tok.borrow_mut().kind = TokenKind::KwAs,
             "return" => tok.borrow_mut().kind = TokenKind::KwReturn,
             "void" => tok.borrow_mut().kind = TokenKind::KwVoid,
+            "extern" => tok.borrow_mut().kind = TokenKind::KwExtern,
             "@import" => tok.borrow_mut().kind = TokenKind::KwImport,
             "@asm" => tok.borrow_mut().kind = TokenKind::KwAsm,
             _ => {}

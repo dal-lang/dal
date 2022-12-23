@@ -16,6 +16,7 @@ pub enum NodeKind {
     ParamDecl,
     Type,
     Block,
+    ExternBlock,
     Import,
     Return,
     VarDecl,
@@ -43,6 +44,7 @@ impl NodeKind {
             NodeKind::ParamDecl => "ParamDecl",
             NodeKind::Type => "Type",
             NodeKind::Block => "Block",
+            NodeKind::ExternBlock => "ExternBlock",
             NodeKind::Import => "Import",
             NodeKind::Return => "Return",
             NodeKind::VarDecl => "VarDecl",
@@ -253,6 +255,27 @@ impl NodeBlock {
 
     pub fn set_children(&self, children: Vec<RefCell<Node>>) {
         *self.children.borrow_mut() = children;
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NodeExtern {
+    pub fn_decls: RefCell<Vec<RefCell<Node>>>,
+}
+
+impl NodeExtern {
+    pub fn new() -> Self {
+        Self {
+            fn_decls: RefCell::new(Vec::new()),
+        }
+    }
+
+    pub fn push(&self, fn_decl: Node) {
+        self.fn_decls.borrow_mut().push(RefCell::new(fn_decl));
+    }
+
+    pub fn set_fn_decls(&self, fn_decls: Vec<RefCell<Node>>) {
+        *self.fn_decls.borrow_mut() = fn_decls;
     }
 }
 
@@ -736,6 +759,7 @@ pub enum NodeData {
     ParamDecl(RefCell<NodeParamDecl>),
     Type(RefCell<NodeType>),
     Block(RefCell<NodeBlock>),
+    ExternBlock(RefCell<NodeExtern>),
     Import(RefCell<NodeImport>),
     Return(RefCell<NodeReturn>),
     VarDecl(RefCell<NodeVarDecl>),
@@ -799,6 +823,13 @@ impl NodeData {
         match self {
             NodeData::Block(block) => block,
             _ => panic!("NodeData::block() called on non-block node"),
+        }
+    }
+
+    pub fn extern_block(&self) -> &RefCell<NodeExtern> {
+        match self {
+            NodeData::ExternBlock(extern_block) => extern_block,
+            _ => panic!("NodeData::extern_block() called on non-extern_block node"),
         }
     }
 
@@ -1064,6 +1095,19 @@ impl Node {
             NodeKind::Block => {
                 println!("{}", self.kind().to_str());
                 for stmt in self.data().block().borrow().children.borrow().clone() {
+                    stmt.borrow().print_ast(indent + 2);
+                }
+            }
+            NodeKind::ExternBlock => {
+                println!("{}", self.kind().to_str());
+                for stmt in self
+                    .data()
+                    .extern_block()
+                    .borrow()
+                    .fn_decls
+                    .borrow()
+                    .clone()
+                {
                     stmt.borrow().print_ast(indent + 2);
                 }
             }

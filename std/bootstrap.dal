@@ -1,0 +1,2 @@
+pub fn _start() -> noreturn {
+}

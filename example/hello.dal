@@ -1,5 +1,9 @@
-@import "std"
+extern {
+  fn puts(s: *mut u8) -> i32
+  fn exit(code: i32) -> noreturn
+}
 
-pub fn main() {
-  println("Hello, World!")
+fn main() {
+  puts("Hello, world!")
+  exit(0)
 }
