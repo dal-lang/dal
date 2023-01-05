@@ -20,3 +20,5 @@ Cargo.lock
 # already existing elements were commented out
 
 #/target
+
+.idea/
