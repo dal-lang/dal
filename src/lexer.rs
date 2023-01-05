@@ -563,9 +563,10 @@ impl<'a> Tokenizer<'a> {
         match c {
             'a'..='z' => {}
             _ => {
+                self.pos -= 1;
                 assert!(self.token.is_some());
                 let mut tok = self.token.take().unwrap();
-                tok.end_pos = self.pos;
+                tok.end_pos = self.pos + 1;
                 let tok_str = self.src[tok.start_pos..tok.end_pos]
                     .iter()
                     .collect::<String>();

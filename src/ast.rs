@@ -4,8 +4,13 @@
 // See the LICENSE file for licensing information.
 
 use std::{
-    cell::{Ref, RefCell},
+    cell::{Ref, RefCell, RefMut},
     fmt::Display,
+};
+
+use crate::{
+    codegen::{CodeGenNode, ImportTableEntry},
+    dal_pointer::{DalPtr, DalWeakPtr},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,24 +70,18 @@ impl Display for NodeKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct RootNode {
-    pub children: RefCell<Vec<RefCell<Node>>>,
+    pub children: Vec<DalPtr<Node>>,
 }
 
 impl RootNode {
     pub fn new() -> Self {
-        Self {
-            children: RefCell::new(vec![]),
-        }
-    }
-
-    pub fn push(&self, node: Node) {
-        self.children.borrow_mut().push(RefCell::new(node));
+        Self { children: vec![] }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FnProtoVisibMod {
     Public,
     Private,
@@ -97,85 +96,57 @@ impl Display for FnProtoVisibMod {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct FnProtoNode {
-    pub visib_mod: RefCell<FnProtoVisibMod>,
-    pub name: RefCell<String>,
-    pub params: RefCell<Vec<RefCell<Node>>>,
-    pub ret_type: RefCell<Node>,
+    pub visib_mod: FnProtoVisibMod,
+    pub name: String,
+    pub params: Vec<RefCell<Node>>,
+    pub ret_type: Node,
 }
 
 impl FnProtoNode {
     pub fn new() -> Self {
         Self {
-            visib_mod: RefCell::new(FnProtoVisibMod::Private),
-            name: RefCell::new(String::new()),
-            params: RefCell::new(vec![]),
-            ret_type: RefCell::new(Node::new(NodeKind::Void)),
+            visib_mod: FnProtoVisibMod::Private,
+            name: String::new(),
+            params: vec![],
+            ret_type: Node::new(NodeKind::Void),
         }
-    }
-
-    pub fn push_param(&self, param: Node) {
-        self.params.borrow_mut().push(RefCell::new(param));
-    }
-
-    pub fn set_ret_type(&self, ret_type: Node) {
-        self.ret_type.replace(ret_type);
-    }
-
-    pub fn set_name(&self, name: String) {
-        self.name.replace(name);
-    }
-
-    pub fn set_visib_mod(&self, visib_mod: FnProtoVisibMod) {
-        self.visib_mod.replace(visib_mod);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct FnDefNode {
-    pub proto: RefCell<Node>,
-    pub body: RefCell<Node>,
+    pub proto: Node,
+    pub body: Node,
 }
 
 impl FnDefNode {
     pub fn new() -> Self {
         Self {
-            proto: RefCell::new(Node::new(NodeKind::FnProto)),
-            body: RefCell::new(Node::new(NodeKind::Block)),
+            proto: Node::new(NodeKind::FnProto),
+            body: Node::new(NodeKind::Block),
         }
-    }
-
-    pub fn set_proto(&self, proto: Node) {
-        self.proto.replace(proto);
-    }
-
-    pub fn set_body(&self, body: Node) {
-        self.body.replace(body);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct FnDeclNode {
-    pub proto: RefCell<Node>,
+    pub proto: DalPtr<Node>,
 }
 
 impl FnDeclNode {
     pub fn new() -> Self {
         Self {
-            proto: RefCell::new(Node::new(NodeKind::FnProto)),
+            proto: DalPtr::null(),
         }
-    }
-
-    pub fn set_proto(&self, proto: Node) {
-        self.proto.replace(proto);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct ParamDeclNode {
-    pub name: RefCell<String>,
-    pub ty: RefCell<Node>,
+    name: RefCell<String>,
+    ty: RefCell<Node>,
 }
 
 impl ParamDeclNode {
@@ -186,16 +157,24 @@ impl ParamDeclNode {
         }
     }
 
-    pub fn set_name(&self, name: String) {
-        self.name.replace(name);
+    pub fn name(&self) -> Ref<String> {
+        self.name.borrow()
     }
 
-    pub fn set_ty(&self, ty: Node) {
-        self.ty.replace(ty);
+    pub fn name_mut(&self) -> RefMut<String> {
+        self.name.borrow_mut()
+    }
+
+    pub fn ty(&self) -> Ref<Node> {
+        self.ty.borrow()
+    }
+
+    pub fn ty_mut(&self) -> RefMut<Node> {
+        self.ty.borrow_mut()
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TypeNodeKind {
     Primitive,
     Array,
@@ -212,155 +191,93 @@ impl Display for TypeNodeKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct TypeNode {
-    pub kind: RefCell<TypeNodeKind>,
-    pub name: RefCell<String>,
-    pub ty: RefCell<Option<Node>>,
-    pub size: RefCell<Option<Node>>,
-    pub is_const: RefCell<bool>,
+    pub kind: TypeNodeKind,
+    pub name: String,
+    pub ty: DalPtr<Node>,
+    pub size: DalPtr<Node>,
+    pub is_const: bool,
 }
 
 impl TypeNode {
     pub fn new() -> Self {
         Self {
-            kind: RefCell::new(TypeNodeKind::Primitive),
-            name: RefCell::new(String::new()),
-            ty: RefCell::new(None),
-            size: RefCell::new(None),
-            is_const: RefCell::new(false),
+            kind: TypeNodeKind::Primitive,
+            name: String::new(),
+            ty: DalPtr::null(),
+            size: DalPtr::null(),
+            is_const: false,
         }
-    }
-
-    pub fn set_kind(&self, kind: TypeNodeKind) {
-        self.kind.replace(kind);
-    }
-
-    pub fn set_name(&self, name: String) {
-        self.name.replace(name);
-    }
-
-    pub fn set_ty(&self, ty: Node) {
-        self.ty.replace(Some(ty));
-    }
-
-    pub fn set_size(&self, size: Node) {
-        self.size.replace(Some(size));
-    }
-
-    pub fn set_is_const(&self, is_const: bool) {
-        self.is_const.replace(is_const);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct BlockNode {
-    pub children: RefCell<Vec<RefCell<Node>>>,
+    pub children: Vec<Node>,
 }
 
 impl BlockNode {
     pub fn new() -> Self {
-        Self {
-            children: RefCell::new(vec![]),
-        }
-    }
-
-    pub fn push(&self, node: Node) {
-        self.children.borrow_mut().push(RefCell::new(node));
+        Self { children: vec![] }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct ExternNode {
-    pub fn_decls: RefCell<Vec<RefCell<Node>>>,
+    pub fn_decls: Vec<DalPtr<Node>>,
 }
 
 impl ExternNode {
     pub fn new() -> Self {
-        Self {
-            fn_decls: RefCell::new(vec![]),
-        }
-    }
-
-    pub fn push(&self, node: Node) {
-        self.fn_decls.borrow_mut().push(RefCell::new(node));
-    }
-
-    pub fn set_fn_decls(&self, fn_decls: Vec<RefCell<Node>>) {
-        self.fn_decls.replace(fn_decls);
+        Self { fn_decls: vec![] }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct ImportNode {
-    pub path: RefCell<String>,
+    pub path: String,
 }
 
 impl ImportNode {
     pub fn new() -> Self {
         Self {
-            path: RefCell::new(String::new()),
+            path: String::new(),
         }
-    }
-
-    pub fn set_path(&self, path: String) {
-        self.path.replace(path);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct ReturnNode {
-    pub expr: RefCell<Option<Node>>,
+    pub expr: Option<Node>,
 }
 
 impl ReturnNode {
     pub fn new() -> Self {
-        Self {
-            expr: RefCell::new(None),
-        }
-    }
-
-    pub fn set_expr(&self, expr: Node) {
-        self.expr.replace(Some(expr));
+        Self { expr: None }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct VarDeclNode {
-    pub name: RefCell<String>,
-    pub ty: RefCell<Option<Node>>,
-    pub expr: RefCell<Option<Node>>,
-    pub is_const: RefCell<bool>,
+    pub name: String,
+    pub ty: Option<Node>,
+    pub expr: Option<Node>,
+    pub is_const: bool,
 }
 
 impl VarDeclNode {
     pub fn new() -> Self {
         Self {
-            name: RefCell::new(String::new()),
-            ty: RefCell::new(None),
-            expr: RefCell::new(None),
-            is_const: RefCell::new(false),
+            name: String::new(),
+            ty: None,
+            expr: None,
+            is_const: false,
         }
-    }
-
-    pub fn set_name(&self, name: String) {
-        self.name.replace(name);
-    }
-
-    pub fn set_ty(&self, ty: Node) {
-        self.ty.replace(Some(ty));
-    }
-
-    pub fn set_expr(&self, expr: Node) {
-        self.expr.replace(Some(expr));
-    }
-
-    pub fn set_is_const(&self, is_const: bool) {
-        self.is_const.replace(is_const);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinOpNodeKind {
     Invalid,
     Assign,
@@ -411,36 +328,24 @@ impl Display for BinOpNodeKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct BinOpExprNode {
-    pub op: RefCell<BinOpNodeKind>,
-    pub lhs: RefCell<Node>,
-    pub rhs: RefCell<Node>,
+    pub op: BinOpNodeKind,
+    pub lhs: Node,
+    pub rhs: Node,
 }
 
 impl BinOpExprNode {
     pub fn new() -> Self {
         Self {
-            op: RefCell::new(BinOpNodeKind::Invalid),
-            lhs: RefCell::new(Node::new(NodeKind::Root)),
-            rhs: RefCell::new(Node::new(NodeKind::Root)),
+            op: BinOpNodeKind::Invalid,
+            lhs: Node::new(NodeKind::Root),
+            rhs: Node::new(NodeKind::Root),
         }
-    }
-
-    pub fn set_op(&self, op: BinOpNodeKind) {
-        self.op.replace(op);
-    }
-
-    pub fn set_lhs(&self, lhs: Node) {
-        self.lhs.replace(lhs);
-    }
-
-    pub fn set_rhs(&self, rhs: Node) {
-        self.rhs.replace(rhs);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnOpNodeKind {
     Invalid,
     Neg,
@@ -459,186 +364,118 @@ impl Display for UnOpNodeKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct UnOpExprNode {
-    pub op: RefCell<UnOpNodeKind>,
-    pub expr: RefCell<Node>,
+    pub op: UnOpNodeKind,
+    pub expr: Node,
 }
 
 impl UnOpExprNode {
     pub fn new() -> Self {
         Self {
-            op: RefCell::new(UnOpNodeKind::Invalid),
-            expr: RefCell::new(Node::new(NodeKind::Root)),
+            op: UnOpNodeKind::Invalid,
+            expr: Node::new(NodeKind::Root),
         }
-    }
-
-    pub fn set_op(&self, op: UnOpNodeKind) {
-        self.op.replace(op);
-    }
-
-    pub fn set_expr(&self, expr: Node) {
-        self.expr.replace(expr);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct CallExprNode {
-    pub callee: RefCell<Node>,
-    pub args: RefCell<Vec<RefCell<Node>>>,
+    pub callee: Node,
+    pub args: Vec<Node>,
 }
 
 impl CallExprNode {
     pub fn new() -> Self {
         Self {
-            callee: RefCell::new(Node::new(NodeKind::Root)),
-            args: RefCell::new(Vec::new()),
+            callee: Node::new(NodeKind::Root),
+            args: Vec::new(),
         }
-    }
-
-    pub fn set_callee(&self, callee: Node) {
-        self.callee.replace(callee);
-    }
-
-    pub fn add_arg(&self, arg: Node) {
-        self.args.borrow_mut().push(RefCell::new(arg));
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct ArrayAccessExprNode {
-    pub array: RefCell<Node>,
-    pub index: RefCell<Node>,
+    pub array: Node,
+    pub index: Node,
 }
 
 impl ArrayAccessExprNode {
     pub fn new() -> Self {
         Self {
-            array: RefCell::new(Node::new(NodeKind::Root)),
-            index: RefCell::new(Node::new(NodeKind::Root)),
+            array: Node::new(NodeKind::Root),
+            index: Node::new(NodeKind::Root),
         }
-    }
-
-    pub fn set_array(&self, array: Node) {
-        self.array.replace(array);
-    }
-
-    pub fn set_index(&self, index: Node) {
-        self.index.replace(index);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct CastExprNode {
-    pub ty: RefCell<Node>,
-    pub expr: RefCell<Node>,
+    pub ty: Node,
+    pub expr: Node,
 }
 
 impl CastExprNode {
     pub fn new() -> Self {
         Self {
-            ty: RefCell::new(Node::new(NodeKind::Root)),
-            expr: RefCell::new(Node::new(NodeKind::Root)),
+            ty: Node::new(NodeKind::Root),
+            expr: Node::new(NodeKind::Root),
         }
-    }
-
-    pub fn set_ty(&self, ty: Node) {
-        self.ty.replace(ty);
-    }
-
-    pub fn set_expr(&self, expr: Node) {
-        self.expr.replace(expr);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct IfExprNode {
-    pub cond: RefCell<Node>,
-    pub then: RefCell<Node>,
-    pub else_: RefCell<Option<Node>>,
+    pub cond: Node,
+    pub then: Node,
+    pub else_: Option<Node>,
 }
 
 impl IfExprNode {
     pub fn new() -> Self {
         Self {
-            cond: RefCell::new(Node::new(NodeKind::Root)),
-            then: RefCell::new(Node::new(NodeKind::Root)),
-            else_: RefCell::new(None),
+            cond: Node::new(NodeKind::Root),
+            then: Node::new(NodeKind::Root),
+            else_: None,
         }
-    }
-
-    pub fn set_cond(&self, cond: Node) {
-        self.cond.replace(cond);
-    }
-
-    pub fn set_then(&self, then: Node) {
-        self.then.replace(then);
-    }
-
-    pub fn set_else(&self, else_: Node) {
-        self.else_.replace(Some(else_));
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct AsmOutput {
-    pub symbolic_name: RefCell<String>,
-    pub constraint: RefCell<String>,
-    pub var_name: RefCell<String>,
+    pub symbolic_name: String,
+    pub constraint: String,
+    pub var_name: String,
 }
 
 impl AsmOutput {
     pub fn new() -> Self {
         Self {
-            symbolic_name: RefCell::new(String::new()),
-            constraint: RefCell::new(String::new()),
-            var_name: RefCell::new(String::new()),
+            symbolic_name: String::new(),
+            constraint: String::new(),
+            var_name: String::new(),
         }
-    }
-
-    pub fn set_symbolic_name(&self, symbolic_name: String) {
-        self.symbolic_name.replace(symbolic_name);
-    }
-
-    pub fn set_constraint(&self, constraint: String) {
-        self.constraint.replace(constraint);
-    }
-
-    pub fn set_var_name(&self, var_name: String) {
-        self.var_name.replace(var_name);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct AsmInput {
-    pub symbolic_name: RefCell<String>,
-    pub constraint: RefCell<String>,
-    pub expr: RefCell<Node>,
+    pub symbolic_name: String,
+    pub constraint: String,
+    pub expr: Node,
 }
 
 impl AsmInput {
     pub fn new() -> Self {
         Self {
-            symbolic_name: RefCell::new(String::new()),
-            constraint: RefCell::new(String::new()),
-            expr: RefCell::new(Node::new(NodeKind::Root)),
+            symbolic_name: String::new(),
+            constraint: String::new(),
+            expr: Node::new(NodeKind::Root),
         }
-    }
-
-    pub fn set_symbolic_name(&self, symbolic_name: String) {
-        self.symbolic_name.replace(symbolic_name);
-    }
-
-    pub fn set_constraint(&self, constraint: String) {
-        self.constraint.replace(constraint);
-    }
-
-    pub fn set_expr(&self, expr: Node) {
-        self.expr.replace(expr);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct SrcPos {
     pub line: usize,
     pub col: usize,
@@ -648,400 +485,504 @@ impl SrcPos {
     pub fn new() -> Self {
         Self { line: 0, col: 0 }
     }
-
-    pub fn set_line(&mut self, line: usize) {
-        self.line = line;
-    }
-
-    pub fn set_col(&mut self, col: usize) {
-        self.col = col;
-    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AsmTokenKind {
     Template,
     Percent,
     Var,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct AsmToken {
-    pub kind: RefCell<AsmTokenKind>,
-    pub start: RefCell<usize>,
-    pub end: RefCell<usize>,
+    pub kind: AsmTokenKind,
+    pub start: usize,
+    pub end: usize,
 }
 
 impl AsmToken {
     pub fn new() -> Self {
         Self {
-            kind: RefCell::new(AsmTokenKind::Template),
-            start: RefCell::new(0),
-            end: RefCell::new(0),
+            kind: AsmTokenKind::Template,
+            start: 0,
+            end: 0,
         }
-    }
-
-    pub fn set_kind(&self, kind: AsmTokenKind) {
-        self.kind.replace(kind);
-    }
-
-    pub fn set_start(&self, start: usize) {
-        self.start.replace(start);
-    }
-
-    pub fn set_end(&self, end: usize) {
-        self.end.replace(end);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct AsmExprNode {
-    pub template: RefCell<String>,
-    pub outputs: RefCell<Vec<RefCell<AsmOutput>>>,
-    pub inputs: RefCell<Vec<RefCell<AsmInput>>>,
-    pub clobbers: RefCell<Vec<RefCell<String>>>,
-    pub tokens: RefCell<Vec<RefCell<AsmToken>>>,
-    pub offset_map: RefCell<Vec<SrcPos>>,
+    pub template: String,
+    pub outputs: Vec<AsmOutput>,
+    pub inputs: Vec<AsmInput>,
+    pub clobbers: Vec<String>,
+    pub tokens: Vec<AsmToken>,
+    pub offset_map: Vec<SrcPos>,
 }
 
 impl AsmExprNode {
     pub fn new() -> Self {
         Self {
-            template: RefCell::new(String::new()),
-            outputs: RefCell::new(Vec::new()),
-            inputs: RefCell::new(Vec::new()),
-            clobbers: RefCell::new(Vec::new()),
-            tokens: RefCell::new(Vec::new()),
-            offset_map: RefCell::new(Vec::new()),
+            template: String::new(),
+            outputs: Vec::new(),
+            inputs: Vec::new(),
+            clobbers: Vec::new(),
+            tokens: Vec::new(),
+            offset_map: Vec::new(),
         }
-    }
-
-    pub fn set_template(&self, template: String) {
-        self.template.replace(template);
-    }
-
-    pub fn add_output(&self, output: AsmOutput) {
-        self.outputs.borrow_mut().push(RefCell::new(output));
-    }
-
-    pub fn add_input(&self, input: AsmInput) {
-        self.inputs.borrow_mut().push(RefCell::new(input));
-    }
-
-    pub fn add_clobber(&self, clobber: String) {
-        self.clobbers.borrow_mut().push(RefCell::new(clobber));
-    }
-
-    pub fn add_token(&self, token: AsmToken) {
-        self.tokens.borrow_mut().push(RefCell::new(token));
-    }
-
-    pub fn add_offset_map(&self, offset_map: SrcPos) {
-        self.offset_map.borrow_mut().push(offset_map);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub enum NodeData {
     None,
-    Root(RootNode),
-    FnProto(FnProtoNode),
-    FnDef(FnDefNode),
-    FnDecl(FnDeclNode),
-    ParamDecl(ParamDeclNode),
-    Type(TypeNode),
-    Block(BlockNode),
-    Extern(ExternNode),
-    Import(ImportNode),
-    Return(ReturnNode),
-    VarDecl(VarDeclNode),
-    BinOpExpr(BinOpExprNode),
-    UnOpExpr(UnOpExprNode),
-    CallExpr(CallExprNode),
-    ArrayAccessExpr(ArrayAccessExprNode),
-    CastExpr(CastExprNode),
-    IfExpr(IfExprNode),
-    AsmExpr(AsmExprNode),
-    StrLit(String),
-    NumLit(String),
-    BoolLit(bool),
-    Ident(String),
+    Root(RefCell<RootNode>),
+    FnProto(RefCell<FnProtoNode>),
+    FnDef(RefCell<FnDefNode>),
+    FnDecl(RefCell<FnDeclNode>),
+    ParamDecl(RefCell<ParamDeclNode>),
+    Type(RefCell<TypeNode>),
+    Block(RefCell<BlockNode>),
+    Extern(RefCell<ExternNode>),
+    Import(RefCell<ImportNode>),
+    Return(RefCell<ReturnNode>),
+    VarDecl(RefCell<VarDeclNode>),
+    BinOpExpr(RefCell<BinOpExprNode>),
+    UnOpExpr(RefCell<UnOpExprNode>),
+    CallExpr(RefCell<CallExprNode>),
+    ArrayAccessExpr(RefCell<ArrayAccessExprNode>),
+    CastExpr(RefCell<CastExprNode>),
+    IfExpr(RefCell<IfExprNode>),
+    AsmExpr(RefCell<AsmExprNode>),
+    StrLit(RefCell<String>),
+    NumLit(RefCell<String>),
+    BoolLit(RefCell<bool>),
+    Ident(RefCell<String>),
 }
 
 impl NodeData {
-    pub fn root(&self) -> &RootNode {
+    pub fn root(&self) -> Ref<RootNode> {
         match self {
-            NodeData::Root(root) => root,
+            NodeData::Root(root) => root.borrow(),
             _ => panic!("NodeData::root()"),
         }
     }
 
-    pub fn fn_proto(&self) -> &FnProtoNode {
+    pub fn root_mut(&self) -> RefMut<RootNode> {
         match self {
-            NodeData::FnProto(fn_proto) => fn_proto,
+            NodeData::Root(root) => root.borrow_mut(),
+            _ => panic!("NodeData::root_mut()"),
+        }
+    }
+
+    pub fn fn_proto(&self) -> Ref<FnProtoNode> {
+        match self {
+            NodeData::FnProto(fn_proto) => fn_proto.borrow(),
             _ => panic!("NodeData::fn_proto()"),
         }
     }
 
-    pub fn fn_def(&self) -> &FnDefNode {
+    pub fn fn_proto_mut(&self) -> RefMut<FnProtoNode> {
         match self {
-            NodeData::FnDef(fn_def) => fn_def,
+            NodeData::FnProto(fn_proto) => fn_proto.borrow_mut(),
+            _ => panic!("NodeData::fn_proto_mut()"),
+        }
+    }
+
+    pub fn fn_def(&self) -> Ref<FnDefNode> {
+        match self {
+            NodeData::FnDef(fn_def) => fn_def.borrow(),
             _ => panic!("NodeData::fn_def()"),
         }
     }
 
-    pub fn fn_decl(&self) -> &FnDeclNode {
+    pub fn fn_def_mut(&self) -> RefMut<FnDefNode> {
         match self {
-            NodeData::FnDecl(fn_decl) => fn_decl,
+            NodeData::FnDef(fn_def) => fn_def.borrow_mut(),
+            _ => panic!("NodeData::fn_def_mut()"),
+        }
+    }
+
+    pub fn fn_decl(&self) -> Ref<FnDeclNode> {
+        match self {
+            NodeData::FnDecl(fn_decl) => fn_decl.borrow(),
             _ => panic!("NodeData::fn_decl()"),
         }
     }
 
-    pub fn param_decl(&self) -> &ParamDeclNode {
+    pub fn fn_decl_mut(&self) -> RefMut<FnDeclNode> {
         match self {
-            NodeData::ParamDecl(param_decl) => param_decl,
+            NodeData::FnDecl(fn_decl) => fn_decl.borrow_mut(),
+            _ => panic!("NodeData::fn_decl_mut()"),
+        }
+    }
+
+    pub fn param_decl(&self) -> Ref<ParamDeclNode> {
+        match self {
+            NodeData::ParamDecl(param_decl) => param_decl.borrow(),
             _ => panic!("NodeData::param_decl()"),
         }
     }
 
-    pub fn type_(&self) -> &TypeNode {
+    pub fn param_decl_mut(&self) -> RefMut<ParamDeclNode> {
         match self {
-            NodeData::Type(type_) => type_,
+            NodeData::ParamDecl(param_decl) => param_decl.borrow_mut(),
+            _ => panic!("NodeData::param_decl_mut()"),
+        }
+    }
+
+    pub fn type_(&self) -> Ref<TypeNode> {
+        match self {
+            NodeData::Type(type_) => type_.borrow(),
             _ => panic!("NodeData::type_()"),
         }
     }
 
-    pub fn block(&self) -> &BlockNode {
+    pub fn type_mut(&self) -> RefMut<TypeNode> {
         match self {
-            NodeData::Block(block) => block,
+            NodeData::Type(type_) => type_.borrow_mut(),
+            _ => panic!("NodeData::type_mut()"),
+        }
+    }
+
+    pub fn block(&self) -> Ref<BlockNode> {
+        match self {
+            NodeData::Block(block) => block.borrow(),
             _ => panic!("NodeData::block()"),
         }
     }
 
-    pub fn extern_(&self) -> &ExternNode {
+    pub fn block_mut(&self) -> RefMut<BlockNode> {
         match self {
-            NodeData::Extern(extern_) => extern_,
+            NodeData::Block(block) => block.borrow_mut(),
+            _ => panic!("NodeData::block_mut()"),
+        }
+    }
+
+    pub fn extern_(&self) -> Ref<ExternNode> {
+        match self {
+            NodeData::Extern(extern_) => extern_.borrow(),
             _ => panic!("NodeData::extern_()"),
         }
     }
 
-    pub fn import(&self) -> &ImportNode {
+    pub fn extern_mut(&self) -> RefMut<ExternNode> {
         match self {
-            NodeData::Import(import) => import,
+            NodeData::Extern(extern_) => extern_.borrow_mut(),
+            _ => panic!("NodeData::extern_mut()"),
+        }
+    }
+
+    pub fn import(&self) -> Ref<ImportNode> {
+        match self {
+            NodeData::Import(import) => import.borrow(),
             _ => panic!("NodeData::import()"),
         }
     }
 
-    pub fn return_(&self) -> &ReturnNode {
+    pub fn import_mut(&self) -> RefMut<ImportNode> {
         match self {
-            NodeData::Return(return_) => return_,
+            NodeData::Import(import) => import.borrow_mut(),
+            _ => panic!("NodeData::import_mut()"),
+        }
+    }
+
+    pub fn return_(&self) -> Ref<ReturnNode> {
+        match self {
+            NodeData::Return(return_) => return_.borrow(),
             _ => panic!("NodeData::return_()"),
         }
     }
 
-    pub fn var_decl(&self) -> &VarDeclNode {
+    pub fn return_mut(&self) -> RefMut<ReturnNode> {
         match self {
-            NodeData::VarDecl(var_decl) => var_decl,
+            NodeData::Return(return_) => return_.borrow_mut(),
+            _ => panic!("NodeData::return_mut()"),
+        }
+    }
+
+    pub fn var_decl(&self) -> Ref<VarDeclNode> {
+        match self {
+            NodeData::VarDecl(var_decl) => var_decl.borrow(),
             _ => panic!("NodeData::var_decl()"),
         }
     }
 
-    pub fn bin_op_expr(&self) -> &BinOpExprNode {
+    pub fn var_decl_mut(&self) -> RefMut<VarDeclNode> {
         match self {
-            NodeData::BinOpExpr(bin_op_expr) => bin_op_expr,
+            NodeData::VarDecl(var_decl) => var_decl.borrow_mut(),
+            _ => panic!("NodeData::var_decl_mut()"),
+        }
+    }
+
+    pub fn bin_op_expr(&self) -> Ref<BinOpExprNode> {
+        match self {
+            NodeData::BinOpExpr(bin_op_expr) => bin_op_expr.borrow(),
             _ => panic!("NodeData::bin_op_expr()"),
         }
     }
 
-    pub fn un_op_expr(&self) -> &UnOpExprNode {
+    pub fn bin_op_expr_mut(&self) -> RefMut<BinOpExprNode> {
         match self {
-            NodeData::UnOpExpr(un_op_expr) => un_op_expr,
+            NodeData::BinOpExpr(bin_op_expr) => bin_op_expr.borrow_mut(),
+            _ => panic!("NodeData::bin_op_expr_mut()"),
+        }
+    }
+
+    pub fn un_op_expr(&self) -> Ref<UnOpExprNode> {
+        match self {
+            NodeData::UnOpExpr(un_op_expr) => un_op_expr.borrow(),
             _ => panic!("NodeData::un_op_expr()"),
         }
     }
 
-    pub fn call_expr(&self) -> &CallExprNode {
+    pub fn un_op_expr_mut(&self) -> RefMut<UnOpExprNode> {
         match self {
-            NodeData::CallExpr(call_expr) => call_expr,
+            NodeData::UnOpExpr(un_op_expr) => un_op_expr.borrow_mut(),
+            _ => panic!("NodeData::un_op_expr_mut()"),
+        }
+    }
+
+    pub fn call_expr(&self) -> Ref<CallExprNode> {
+        match self {
+            NodeData::CallExpr(call_expr) => call_expr.borrow(),
             _ => panic!("NodeData::call_expr()"),
         }
     }
 
-    pub fn array_access_expr(&self) -> &ArrayAccessExprNode {
+    pub fn call_expr_mut(&self) -> RefMut<CallExprNode> {
         match self {
-            NodeData::ArrayAccessExpr(array_access_expr) => array_access_expr,
+            NodeData::CallExpr(call_expr) => call_expr.borrow_mut(),
+            _ => panic!("NodeData::call_expr_mut()"),
+        }
+    }
+
+    pub fn array_access_expr(&self) -> Ref<ArrayAccessExprNode> {
+        match self {
+            NodeData::ArrayAccessExpr(array_access_expr) => array_access_expr.borrow(),
             _ => panic!("NodeData::array_access_expr()"),
         }
     }
 
-    pub fn cast_expr(&self) -> &CastExprNode {
+    pub fn array_access_expr_mut(&self) -> RefMut<ArrayAccessExprNode> {
         match self {
-            NodeData::CastExpr(cast_expr) => cast_expr,
+            NodeData::ArrayAccessExpr(array_access_expr) => array_access_expr.borrow_mut(),
+            _ => panic!("NodeData::array_access_expr_mut()"),
+        }
+    }
+
+    pub fn cast_expr(&self) -> Ref<CastExprNode> {
+        match self {
+            NodeData::CastExpr(cast_expr) => cast_expr.borrow(),
             _ => panic!("NodeData::cast_expr()"),
         }
     }
 
-    pub fn if_expr(&self) -> &IfExprNode {
+    pub fn cast_expr_mut(&self) -> RefMut<CastExprNode> {
         match self {
-            NodeData::IfExpr(if_expr) => if_expr,
+            NodeData::CastExpr(cast_expr) => cast_expr.borrow_mut(),
+            _ => panic!("NodeData::cast_expr_mut()"),
+        }
+    }
+
+    pub fn if_expr(&self) -> Ref<IfExprNode> {
+        match self {
+            NodeData::IfExpr(if_expr) => if_expr.borrow(),
             _ => panic!("NodeData::if_expr()"),
         }
     }
 
-    pub fn asm_expr(&self) -> &AsmExprNode {
+    pub fn if_expr_mut(&self) -> RefMut<IfExprNode> {
         match self {
-            NodeData::AsmExpr(asm_expr) => asm_expr,
+            NodeData::IfExpr(if_expr) => if_expr.borrow_mut(),
+            _ => panic!("NodeData::if_expr_mut()"),
+        }
+    }
+
+    pub fn asm_expr(&self) -> Ref<AsmExprNode> {
+        match self {
+            NodeData::AsmExpr(asm_expr) => asm_expr.borrow(),
             _ => panic!("NodeData::asm_expr()"),
         }
     }
 
-    pub fn str_lit(&self) -> &String {
+    pub fn asm_expr_mut(&self) -> RefMut<AsmExprNode> {
         match self {
-            NodeData::StrLit(str_lit) => str_lit,
+            NodeData::AsmExpr(asm_expr) => asm_expr.borrow_mut(),
+            _ => panic!("NodeData::asm_expr_mut()"),
+        }
+    }
+
+    pub fn str_lit(&self) -> Ref<String> {
+        match self {
+            NodeData::StrLit(str_lit) => str_lit.borrow(),
             _ => panic!("NodeData::str_lit()"),
         }
     }
 
-    pub fn num_lit(&self) -> &String {
+    pub fn str_lit_mut(&self) -> RefMut<String> {
         match self {
-            NodeData::NumLit(num_lit) => num_lit,
+            NodeData::StrLit(str_lit) => str_lit.borrow_mut(),
+            _ => panic!("NodeData::str_lit_mut()"),
+        }
+    }
+
+    pub fn num_lit(&self) -> Ref<String> {
+        match self {
+            NodeData::NumLit(num_lit) => num_lit.borrow(),
             _ => panic!("NodeData::num_lit()"),
         }
     }
 
-    pub fn bool_lit(&self) -> &bool {
+    pub fn num_lit_mut(&self) -> RefMut<String> {
         match self {
-            NodeData::BoolLit(bool_lit) => bool_lit,
+            NodeData::NumLit(num_lit) => num_lit.borrow_mut(),
+            _ => panic!("NodeData::num_lit_mut()"),
+        }
+    }
+
+    pub fn bool_lit(&self) -> Ref<bool> {
+        match self {
+            NodeData::BoolLit(bool_lit) => bool_lit.borrow(),
             _ => panic!("NodeData::bool_lit()"),
         }
     }
 
-    pub fn ident(&self) -> &String {
+    pub fn bool_lit_mut(&self) -> RefMut<bool> {
         match self {
-            NodeData::Ident(ident) => ident,
+            NodeData::BoolLit(bool_lit) => bool_lit.borrow_mut(),
+            _ => panic!("NodeData::bool_lit_mut()"),
+        }
+    }
+
+    pub fn ident(&self) -> Ref<String> {
+        match self {
+            NodeData::Ident(ident) => ident.borrow(),
             _ => panic!("NodeData::ident()"),
         }
     }
 
+    pub fn ident_mut(&self) -> RefMut<String> {
+        match self {
+            NodeData::Ident(ident) => ident.borrow_mut(),
+            _ => panic!("NodeData::ident_mut()"),
+        }
+    }
+
     pub fn new_num_lit(num_lit: String) -> NodeData {
-        NodeData::NumLit(num_lit)
+        NodeData::NumLit(RefCell::new(num_lit))
     }
 
     pub fn new_str_lit(str_lit: String) -> NodeData {
-        NodeData::StrLit(str_lit)
+        NodeData::StrLit(RefCell::new(str_lit))
     }
 
     pub fn new_bool_lit(bool_lit: bool) -> NodeData {
-        NodeData::BoolLit(bool_lit)
+        NodeData::BoolLit(RefCell::new(bool_lit))
     }
 
     pub fn new_ident(ident: String) -> NodeData {
-        NodeData::Ident(ident)
+        NodeData::Ident(RefCell::new(ident))
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct Node {
-    pub kind: RefCell<NodeKind>,
-    pub line: RefCell<usize>,
-    pub col: RefCell<usize>,
-    pub data: RefCell<Box<NodeData>>,
+    pub kind: NodeKind,
+    pub line: usize,
+    pub col: usize,
+    pub data: Box<NodeData>,
+    pub owner: DalWeakPtr<ImportTableEntry>,
+    pub codegen_node: DalPtr<CodeGenNode>,
 }
 
 impl Node {
     pub fn new(kind: NodeKind) -> Self {
-        let node = Self {
-            kind: RefCell::new(kind),
-            line: RefCell::new(0),
-            col: RefCell::new(0),
-            data: RefCell::new(Box::new(NodeData::None)),
+        let mut node = Self {
+            kind,
+            line: 0,
+            col: 0,
+            data: Box::new(NodeData::None),
+            owner: DalWeakPtr::new(),
+            codegen_node: DalPtr::null(),
         };
         match kind {
             NodeKind::Root => {
-                node.set_data(NodeData::Root(RootNode::new()));
+                node.data = Box::new(NodeData::Root(RefCell::new(RootNode::new())));
             }
             NodeKind::FnProto => {
-                node.set_data(NodeData::FnProto(FnProtoNode::new()));
+                node.data = Box::new(NodeData::FnProto(RefCell::new(FnProtoNode::new())));
             }
             NodeKind::FnDef => {
-                node.set_data(NodeData::FnDef(FnDefNode::new()));
+                node.data = Box::new(NodeData::FnDef(RefCell::new(FnDefNode::new())));
             }
             NodeKind::FnDecl => {
-                node.set_data(NodeData::FnDecl(FnDeclNode::new()));
+                node.data = Box::new(NodeData::FnDecl(RefCell::new(FnDeclNode::new())));
             }
             NodeKind::ParamDecl => {
-                node.set_data(NodeData::ParamDecl(ParamDeclNode::new()));
+                node.data = Box::new(NodeData::ParamDecl(RefCell::new(ParamDeclNode::new())));
             }
             NodeKind::Type => {
-                node.set_data(NodeData::Type(TypeNode::new()));
+                node.data = Box::new(NodeData::Type(RefCell::new(TypeNode::new())));
             }
             NodeKind::Block => {
-                node.set_data(NodeData::Block(BlockNode::new()));
+                node.data = Box::new(NodeData::Block(RefCell::new(BlockNode::new())));
             }
             NodeKind::ExternBlock => {
-                node.set_data(NodeData::Extern(ExternNode::new()));
+                node.data = Box::new(NodeData::Extern(RefCell::new(ExternNode::new())));
             }
             NodeKind::Import => {
-                node.set_data(NodeData::Import(ImportNode::new()));
+                node.data = Box::new(NodeData::Import(RefCell::new(ImportNode::new())));
             }
             NodeKind::Return => {
-                node.set_data(NodeData::Return(ReturnNode::new()));
+                node.data = Box::new(NodeData::Return(RefCell::new(ReturnNode::new())));
             }
             NodeKind::VarDecl => {
-                node.set_data(NodeData::VarDecl(VarDeclNode::new()));
+                node.data = Box::new(NodeData::VarDecl(RefCell::new(VarDeclNode::new())));
             }
             NodeKind::BinOpExpr => {
-                node.set_data(NodeData::BinOpExpr(BinOpExprNode::new()));
+                node.data = Box::new(NodeData::BinOpExpr(RefCell::new(BinOpExprNode::new())));
             }
             NodeKind::UnaryOpExpr => {
-                node.set_data(NodeData::UnOpExpr(UnOpExprNode::new()));
+                node.data = Box::new(NodeData::UnOpExpr(RefCell::new(UnOpExprNode::new())));
             }
             NodeKind::CallExpr => {
-                node.set_data(NodeData::CallExpr(CallExprNode::new()));
+                node.data = Box::new(NodeData::CallExpr(RefCell::new(CallExprNode::new())));
             }
             NodeKind::ArrayAccessExpr => {
-                node.set_data(NodeData::ArrayAccessExpr(ArrayAccessExprNode::new()));
+                node.data = Box::new(NodeData::ArrayAccessExpr(RefCell::new(
+                    ArrayAccessExprNode::new(),
+                )));
             }
             NodeKind::CastExpr => {
-                node.set_data(NodeData::CastExpr(CastExprNode::new()));
+                node.data = Box::new(NodeData::CastExpr(RefCell::new(CastExprNode::new())));
             }
             NodeKind::IfExpr => {
-                node.set_data(NodeData::IfExpr(IfExprNode::new()));
+                node.data = Box::new(NodeData::IfExpr(RefCell::new(IfExprNode::new())));
             }
             NodeKind::AsmExpr => {
-                node.set_data(NodeData::AsmExpr(AsmExprNode::new()));
+                node.data = Box::new(NodeData::AsmExpr(RefCell::new(AsmExprNode::new())));
             }
             NodeKind::StrLit => {
-                node.set_data(NodeData::StrLit(String::new()));
+                node.data = Box::new(NodeData::StrLit(RefCell::new(String::new())));
             }
             NodeKind::NumLit => {
-                node.set_data(NodeData::NumLit(String::new()));
+                node.data = Box::new(NodeData::NumLit(RefCell::new(String::new())));
             }
             NodeKind::BoolLit => {
-                node.set_data(NodeData::BoolLit(false));
+                node.data = Box::new(NodeData::BoolLit(RefCell::new(false)));
             }
             NodeKind::Ident => {
-                node.set_data(NodeData::Ident(String::new()));
+                node.data = Box::new(NodeData::Ident(RefCell::new(String::new())));
             }
             _ => {}
         }
         node
     }
 
-    pub fn data(&self) -> Ref<Box<NodeData>> {
-        self.data.borrow()
-    }
-
-    pub fn set_line(&self, line: usize) {
-        self.line.replace(line);
-    }
-
-    pub fn set_col(&self, col: usize) {
-        self.col.replace(col);
-    }
-
-    pub fn set_data(&self, data: NodeData) {
-        self.data.replace(Box::new(data));
+    pub fn owner(&self) -> DalPtr<ImportTableEntry> {
+        self.owner.upgrade().unwrap()
     }
 
     pub fn to_str(&self, depth: usize) -> String {
@@ -1050,156 +991,92 @@ impl Node {
             str.push_str(" ");
         }
 
-        match self.kind.borrow().to_owned() {
+        match self.kind {
             NodeKind::Root => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
-                for child in self.data().root().children.borrow().to_owned() {
+                for child in &self.data.root().children {
                     str.push_str(&child.borrow().to_str(depth + 2));
                 }
             }
             NodeKind::FnProto => {
-                str.push_str(&format!(
-                    "{} '{}'\n",
-                    self.kind.borrow(),
-                    self.data().fn_proto().name.borrow()
-                ));
-                for child in self.data().fn_proto().params.borrow().clone() {
+                str.push_str(&format!("{} '{}'\n", self.kind, self.data.fn_proto().name));
+                for child in &self.data.fn_proto().params {
                     str.push_str(&child.borrow().to_str(depth + 2));
                 }
-                str.push_str(&self.data().fn_proto().ret_type.borrow().to_str(depth + 2));
+                str.push_str(&self.data.fn_proto().ret_type.to_str(depth + 2));
             }
             NodeKind::FnDef => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
-                str.push_str(&self.data().fn_def().proto.borrow().to_str(depth + 2));
-                str.push_str(&self.data().fn_def().body.borrow().to_str(depth + 2));
+                str.push_str(&self.data.fn_def().proto.to_str(depth + 2));
+                str.push_str(&self.data.fn_def().body.to_str(depth + 2));
             }
             NodeKind::FnDecl => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
-                str.push_str(&self.data().fn_decl().proto.borrow().to_str(depth + 2));
+                str.push_str(&self.data.fn_decl().proto.borrow().to_str(depth + 2));
             }
             NodeKind::ParamDecl => {
                 str.push_str(&format!(
                     "{} '{}'\n",
-                    self.kind.borrow(),
-                    self.data().param_decl().name.borrow()
+                    self.kind,
+                    self.data.param_decl().name.borrow()
                 ));
-                str.push_str(&self.data().param_decl().ty.borrow().to_str(depth + 2));
+                str.push_str(&self.data.param_decl().ty.borrow().to_str(depth + 2));
             }
-            NodeKind::Type => match self.data().type_().kind.borrow().clone() {
+            NodeKind::Type => match self.data.type_().kind {
                 TypeNodeKind::Primitive => {
-                    str.push_str(&format!(
-                        "{} '{}'\n",
-                        self.kind.borrow(),
-                        self.data().type_().name.borrow()
-                    ));
+                    str.push_str(&format!("{} '{}'\n", self.kind, self.data.type_().name));
                 }
                 TypeNodeKind::Pointer => {
-                    let const_or_mut = match self.data().type_().is_const.borrow().clone() {
+                    let const_or_mut = match self.data.type_().is_const {
                         true => "const",
                         false => "mut",
                     };
                     str.push_str(&format!("'{}' ptr\n", const_or_mut));
-                    str.push_str(
-                        &self
-                            .data()
-                            .type_()
-                            .ty
-                            .borrow()
-                            .clone()
-                            .unwrap()
-                            .to_str(depth + 2),
-                    );
+                    str.push_str(&self.data.type_().ty.borrow().to_str(depth + 2));
                 }
                 TypeNodeKind::Array => {
-                    str.push_str(&self.kind.borrow().to_string());
+                    str.push_str(&self.kind.to_string());
                     str.push('\n');
-                    str.push_str(
-                        &self
-                            .data()
-                            .type_()
-                            .ty
-                            .clone()
-                            .borrow()
-                            .as_ref()
-                            .unwrap()
-                            .to_str(depth + 2),
-                    );
-                    str.push_str(
-                        &self
-                            .data()
-                            .type_()
-                            .size
-                            .clone()
-                            .borrow()
-                            .as_ref()
-                            .unwrap()
-                            .to_str(depth + 2),
-                    );
+                    str.push_str(&self.data.type_().ty.borrow().to_str(depth + 2));
+                    str.push_str(&self.data.type_().size.borrow().to_str(depth + 2));
                 }
             },
             NodeKind::Block => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
-                for stmt in self.data().block().children.borrow().clone() {
-                    str.push_str(&stmt.borrow().to_str(depth + 2));
+                for stmt in &self.data.block().children {
+                    str.push_str(&stmt.to_str(depth + 2));
                 }
             }
             NodeKind::ExternBlock => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
-                for stmt in self.data().extern_().fn_decls.borrow().clone() {
+                for stmt in &self.data.extern_().fn_decls {
                     str.push_str(&stmt.borrow().to_str(depth + 2));
                 }
             }
             NodeKind::Import => {
-                str.push_str(&format!(
-                    "{} '{}'\n",
-                    self.kind.borrow(),
-                    self.data().import().path.borrow()
-                ));
+                str.push_str(&format!("{} '{}'\n", self.kind, self.data.import().path));
             }
             NodeKind::Return => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
-                str.push_str(
-                    &self
-                        .data()
-                        .return_()
-                        .expr
-                        .borrow()
-                        .as_ref()
-                        .unwrap()
-                        .to_str(depth + 2),
-                );
+                str.push_str(&self.data.return_().expr.as_ref().unwrap().to_str(depth + 2));
             }
             NodeKind::VarDecl => {
-                str.push_str(&format!(
-                    "{} '{}'\n",
-                    self.kind.borrow(),
-                    self.data().var_decl().name.borrow()
-                ));
-                if self.data().var_decl().ty.borrow().is_some() {
-                    str.push_str(
-                        &self
-                            .data()
-                            .var_decl()
-                            .ty
-                            .borrow()
-                            .as_ref()
-                            .unwrap()
-                            .to_str(depth + 2),
-                    );
+                str.push_str(&format!("{} '{}'\n", self.kind, self.data.var_decl().name));
+                if self.data.var_decl().ty.is_some() {
+                    str.push_str(&self.data.var_decl().ty.as_ref().unwrap().to_str(depth + 2));
                 }
-                if self.data().var_decl().expr.borrow().is_some() {
+                if self.data.var_decl().expr.is_some() {
                     str.push_str(
                         &self
-                            .data()
+                            .data
                             .var_decl()
                             .expr
-                            .borrow()
                             .as_ref()
                             .unwrap()
                             .to_str(depth + 2),
@@ -1207,79 +1084,52 @@ impl Node {
                 }
             }
             NodeKind::BinOpExpr => {
-                str.push_str(&format!(
-                    "{} {}\n",
-                    self.kind.borrow(),
-                    self.data().bin_op_expr().op.borrow()
-                ));
-                str.push_str(&self.data().bin_op_expr().lhs.borrow().to_str(depth + 2));
-                str.push_str(&self.data().bin_op_expr().rhs.borrow().to_str(depth + 2));
+                str.push_str(&format!("{} {}\n", self.kind, self.data.bin_op_expr().op));
+                str.push_str(&self.data.bin_op_expr().lhs.to_str(depth + 2));
+                str.push_str(&self.data.bin_op_expr().rhs.to_str(depth + 2));
             }
             NodeKind::UnaryOpExpr => {
-                str.push_str(&format!(
-                    "{} {}\n",
-                    self.kind.borrow(),
-                    self.data().un_op_expr().op.borrow()
-                ));
-                str.push_str(&self.data().un_op_expr().expr.borrow().to_str(depth + 2));
+                str.push_str(&format!("{} {}\n", self.kind, self.data.un_op_expr().op));
+                str.push_str(&self.data.un_op_expr().expr.to_str(depth + 2));
             }
             NodeKind::CallExpr => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
-                str.push_str(&self.data().call_expr().callee.borrow().to_str(depth + 2));
-                for arg in self.data().call_expr().args.borrow().clone() {
-                    str.push_str(&arg.borrow().to_str(depth + 2));
+                str.push_str(&self.data.call_expr().callee.to_str(depth + 2));
+                for arg in self.data.call_expr().args.clone() {
+                    str.push_str(&arg.to_str(depth + 2));
                 }
             }
             NodeKind::Ident => {
-                str.push_str(&format!(
-                    "{} '{}'\n",
-                    self.kind.borrow(),
-                    self.data().ident()
-                ));
+                str.push_str(&format!("{} '{}'\n", self.kind, self.data.ident()));
             }
             NodeKind::ArrayAccessExpr => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
-                str.push_str(
-                    &self
-                        .data()
-                        .array_access_expr()
-                        .array
-                        .borrow()
-                        .to_str(depth + 2),
-                );
-                str.push_str(
-                    &self
-                        .data()
-                        .array_access_expr()
-                        .index
-                        .borrow()
-                        .to_str(depth + 2),
-                );
+                str.push_str(&self.data.array_access_expr().array.to_str(depth + 2));
+                str.push_str(&self.data.array_access_expr().index.to_str(depth + 2));
             }
             NodeKind::CastExpr => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
-                str.push_str(&self.data().cast_expr().expr.borrow().to_str(depth + 2));
-                str.push_str(&self.data().cast_expr().ty.borrow().to_str(depth + 2));
+                str.push_str(&self.data.cast_expr().expr.to_str(depth + 2));
+                str.push_str(&self.data.cast_expr().ty.to_str(depth + 2));
             }
             NodeKind::Void => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
             }
             NodeKind::IfExpr => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
-                str.push_str(&self.data().if_expr().cond.borrow().to_str(depth + 2));
-                str.push_str(&self.data().if_expr().then.borrow().to_str(depth + 2));
-                if self.data().if_expr().else_.borrow().is_some() {
+                str.push_str(&self.data.if_expr().cond.to_str(depth + 2));
+                str.push_str(&self.data.if_expr().then.to_str(depth + 2));
+                if self.data.if_expr().else_.is_some() {
                     str.push_str(
                         &self
-                            .data()
+                            .data
                             .if_expr()
                             .else_
-                            .borrow()
                             .as_ref()
                             .unwrap()
                             .to_str(depth + 2),
@@ -1287,29 +1137,17 @@ impl Node {
                 }
             }
             NodeKind::AsmExpr => {
-                str.push_str(&self.kind.borrow().to_string());
+                str.push_str(&self.kind.to_string());
                 str.push('\n');
             }
             NodeKind::StrLit => {
-                str.push_str(&format!(
-                    "{} '{}'\n",
-                    self.kind.borrow(),
-                    self.data().str_lit()
-                ));
+                str.push_str(&format!("{} '{}'\n", self.kind, self.data.str_lit()));
             }
             NodeKind::NumLit => {
-                str.push_str(&format!(
-                    "{} {}\n",
-                    self.kind.borrow(),
-                    self.data().num_lit()
-                ));
+                str.push_str(&format!("{} {}\n", self.kind, self.data.num_lit()));
             }
             NodeKind::BoolLit => {
-                str.push_str(&format!(
-                    "{} {}\n",
-                    self.kind.borrow(),
-                    self.data().bool_lit()
-                ));
+                str.push_str(&format!("{} {}\n", self.kind, self.data.bool_lit()));
             }
         }
         str
