@@ -1,0 +1,3 @@
+[workspace]
+members = ["dal", "llvm", "lexer", "parser", "ast"]
+
