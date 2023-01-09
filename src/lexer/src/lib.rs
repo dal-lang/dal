@@ -1,23 +1,24 @@
 #[cfg(test)]
 mod tests;
 
-mod tokenizer;
 mod display;
+mod tokenizer;
+use span::Span;
 
-pub use tokenizer::*;
 pub use display::*;
+pub use tokenizer::*;
 
 /// TokenKind represent the kind of token.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TokenKind {
     /// A token representing a keyword, e.g. `let`.
-    Keyword(Keyword),
+    Keyword(KeywordKind),
     /// A token representing a literal, e.g. `42`.
     Literal(LiteralKind),
     /// A token representing an identifier, e.g. `foo`.
     Identifier,
     /// A token representing a symbol, e.g. `+`.
-    Symbol(Symbol),
+    Symbol(SymbolKind),
     /// A token representing a comment, e.g. `// this is a comment`.
     Comment,
     /// A token representing a whitespace, e.g. ` `.
@@ -30,7 +31,7 @@ pub enum TokenKind {
 
 /// Keyword represents a keyword token.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Keyword {
+pub enum KeywordKind {
     /// `let` keyword.
     Let,
     /// `fn` keyword.
@@ -53,6 +54,10 @@ pub enum Keyword {
     As,
     /// `extern` keyword.
     Extern,
+    /// `const` keyword.
+    Const,
+    /// `mut` keyword.
+    Mut,
 }
 
 /// Literal represents a literal token.
@@ -66,7 +71,7 @@ pub enum LiteralKind {
 
 /// Symbol represents a symbol token.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Symbol {
+pub enum SymbolKind {
     /// `+` symbol.
     Plus,
     /// `-` symbol.
@@ -91,6 +96,10 @@ pub enum Symbol {
     LessEqual,
     /// `>=` symbol.
     GreaterEqual,
+    /// `<<` symbol.
+    LeftShift,
+    /// `>>` symbol.
+    RightShift,
     /// `(` symbol.
     LeftParen,
     /// `)` symbol.
@@ -111,6 +120,8 @@ pub enum Symbol {
     DotDot,
     /// `:` symbol.
     Colon,
+    /// `;` symbol
+    Semi,
     /// `%` symbol.
     Percent,
     /// `^` symbol.
@@ -144,30 +155,3 @@ impl Token {
         Self { kind, span }
     }
 }
-
-/// Span holds information about position of a token
-/// in the source code.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Span {
-    /// The start line of the token.
-    pub start_line: usize,
-    /// The start position of the token.
-    pub start_pos: usize,
-    /// The end line of the token.
-    pub end_line: usize,
-    /// The end position of the token.
-    pub end_pos: usize,
-}
-
-impl Span {
-    /// Creates a new `Span`.
-    pub fn new(start_line: usize, start_pos: usize, end_line: usize, end_pos: usize) -> Self {
-        Self {
-            start_line,
-            start_pos,
-            end_line,
-            end_pos,
-        }
-    }
-}
-

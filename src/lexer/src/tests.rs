@@ -156,7 +156,15 @@ Token {
         end_line: 2,
         end_pos: 59,
     },
-}"#]]
+}Token {
+    kind: Eof,
+    span: Span {
+        start_line: 2,
+        start_pos: 59,
+        end_line: 2,
+        end_pos: 59,
+    },
+}"#]],
     )
 }
 
@@ -180,5 +188,16 @@ fn valid_source_code() {
     tokens.next(); // RightParen
     tokens.next(); // Whitespace
     tokens.next(); // RightBrace
+    tokens.next(); // Eof
     assert_eq!(tokens.next(), None);
+
+    let code = r#"import "std"
+// code"#;
+    let tokens: Vec<Token> = tokenize(code).collect();
+    assert_eq!(tokens.len(), 6);
+    assert_eq!(get_token_string(code, &tokens[0]), "import");
+    assert_eq!(get_token_string(code, &tokens[1]), " ");
+    assert_eq!(get_token_string(code, &tokens[2]), r#""std""#);
+    assert_eq!(get_token_string(code, &tokens[3]), "\n");
+    assert_eq!(get_token_string(code, &tokens[4]), "// code");
 }

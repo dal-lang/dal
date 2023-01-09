@@ -1,12 +1,12 @@
 use std::str::Chars;
 
-use crate::Keyword::*;
-use crate::Span;
-use crate::Symbol::*;
+use crate::KeywordKind::*;
 use crate::LiteralKind;
+use crate::SymbolKind::*;
 use crate::Token;
 use crate::TokenKind;
 use crate::TokenKind::*;
+use span::Span;
 
 /// Cursor is a wrapper around a `&str` that keeps track of the current position.
 ///
@@ -48,35 +48,47 @@ pub fn is_ident(s: &str) -> bool {
 /// Creates an iterator that produces tokens from the given source code.
 pub fn tokenize(source: &str) -> impl Iterator<Item = Token> + '_ {
     let mut cursor = Cursor::new(source);
+    let mut eof = false;
     std::iter::from_fn(move || {
         let token = cursor.advance_token();
-        if token.kind != Eof { Some(token) } else { None }
+        if token.kind != Eof {
+            Some(token)
+        } else {
+            if !eof {
+                eof = true;
+                Some(token)
+            } else {
+                None
+            }
+        }
     })
+}
+
+/// Filter out whitespace tokens.
+pub fn filter_whitespace(tokens: impl Iterator<Item = Token>) -> impl Iterator<Item = Token> {
+    tokens.filter(|token| token.kind != Whitespace)
+}
+
+/// Filter out comments.
+pub fn filter_comments(tokens: impl Iterator<Item = Token>) -> impl Iterator<Item = Token> {
+    tokens.filter(|token| token.kind != Comment)
+}
+
+/// Filter non-significant tokens.
+pub fn filter_non_significant(tokens: impl Iterator<Item = Token>) -> impl Iterator<Item = Token> {
+    filter_whitespace(filter_comments(tokens))
 }
 
 impl<'a> Cursor<'a> {
     /// Creates a new `Cursor`.
     pub fn new(s: &'a str) -> Self {
-        Self {
-            chars: s.chars(),
-            pos: 0,
-            line: 1,
-            span: Span::new(1, 0, 1, 0),
-        }
+        Self { chars: s.chars(), pos: 0, line: 1, span: Span::new(1, 0, 1, 0) }
     }
 
     /// Peek at the next character without advancing the cursor.
     /// Returns `EOF_CHAR` if the cursor is at the end of the string.
     pub(crate) fn first(&self) -> char {
         self.chars.clone().next().unwrap_or(EOF_CHAR)
-    }
-
-    /// Peek at the second character without advancing the cursor.
-    /// Returns `EOF_CHAR` if the cursor is at the end of the string.
-    pub(crate) fn second(&self) -> char {
-        let mut chars = self.chars.clone();
-        chars.next();
-        chars.next().unwrap_or(EOF_CHAR)
     }
 
     /// Check if the cursor is at the end of the string.
@@ -96,8 +108,8 @@ impl<'a> Cursor<'a> {
 
     /// Eat while the predicate is true or until the end of file is reached.
     pub(crate) fn eat_while<F>(&mut self, mut pred: F)
-        where
-            F: FnMut(char) -> bool,
+    where
+        F: FnMut(char) -> bool,
     {
         while !self.is_eof() && pred(self.first()) {
             self.bump();
@@ -110,12 +122,12 @@ impl<'a> Cursor<'a> {
             Some(c) => c,
             None => return Token::new(Eof, self.span),
         };
-        let token_kand = match first_char {
+        let token_kind = match first_char {
             // Slash or Comment.
             '/' => match self.first() {
                 '/' => self.eat_comment(),
                 _ => Symbol(Slash),
-            }
+            },
 
             // Multi-symbol operators.
             // = or ==.
@@ -125,7 +137,7 @@ impl<'a> Cursor<'a> {
                     Symbol(EqualEqual)
                 }
                 _ => Symbol(Equal),
-            }
+            },
             // ! or !=.
             '!' => match self.first() {
                 '=' => {
@@ -133,23 +145,31 @@ impl<'a> Cursor<'a> {
                     Symbol(BangEqual)
                 }
                 _ => Symbol(Bang),
-            }
-            // < or <=.
+            },
+            // < , <= or <<.
             '<' => match self.first() {
                 '=' => {
                     self.bump();
                     Symbol(LessEqual)
                 }
+                '<' => {
+                    self.bump();
+                    Symbol(LeftShift)
+                }
                 _ => Symbol(Less),
-            }
-            // > or >=.
+            },
+            // > , >= or >>.
             '>' => match self.first() {
                 '=' => {
                     self.bump();
                     Symbol(GreaterEqual)
                 }
+                '>' => {
+                    self.bump();
+                    Symbol(RightShift)
+                }
                 _ => Symbol(Greater),
-            }
+            },
             // & or &&.
             '&' => match self.first() {
                 '&' => {
@@ -157,7 +177,7 @@ impl<'a> Cursor<'a> {
                     Symbol(AndAnd)
                 }
                 _ => Symbol(And),
-            }
+            },
             // | or ||.
             '|' => match self.first() {
                 '|' => {
@@ -165,7 +185,7 @@ impl<'a> Cursor<'a> {
                     Symbol(OrOr)
                 }
                 _ => Symbol(Or),
-            }
+            },
             // - or ->.
             '-' => match self.first() {
                 '>' => {
@@ -173,7 +193,7 @@ impl<'a> Cursor<'a> {
                     Symbol(Arrow)
                 }
                 _ => Symbol(Minus),
-            }
+            },
             // . or ..
             '.' => match self.first() {
                 '.' => {
@@ -181,7 +201,7 @@ impl<'a> Cursor<'a> {
                     Symbol(DotDot)
                 }
                 _ => Symbol(Dot),
-            }
+            },
 
             // Single-symbol operators.
             '+' => Symbol(Plus),
@@ -194,6 +214,7 @@ impl<'a> Cursor<'a> {
             ']' => Symbol(RightBracket),
             ',' => Symbol(Comma),
             ':' => Symbol(Colon),
+            ';' => Symbol(Semi),
             '%' => Symbol(Percent),
             '^' => Symbol(Caret),
             '~' => Symbol(Tilde),
@@ -215,7 +236,14 @@ impl<'a> Cursor<'a> {
         let mut span = self.update_span();
         span.end_line = self.line;
         span.end_pos = self.pos;
-        Token::new(token_kand, span)
+        Token::new(token_kind, span)
+    }
+
+    /// Get the next token without advancing the `Cursor`.
+    pub fn peek_token(&self) -> Token {
+        let mut cursor =
+            Cursor { chars: self.chars.clone(), pos: self.pos, line: self.line, span: self.span };
+        cursor.advance_token()
     }
 
     /// Update the span of the cursor and return the old span.
@@ -274,6 +302,8 @@ impl<'a> Cursor<'a> {
             "import" => Keyword(Import),
             "as" => Keyword(As),
             "extern" => Keyword(Extern),
+            "const" => Keyword(Const),
+            "mut" => Keyword(Mut),
             _ => Identifier,
         }
     }
