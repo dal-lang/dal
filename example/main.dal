@@ -1,0 +1,15 @@
+import "std"
+
+// example number assertion.
+fn assert(x: isize, y: isize) -> bool {
+    if x == y {
+        return true
+    } else {
+        return false
+    }
+}
+
+// example main.
+pub fn main() {
+    std.println("Hello, world!")
+}

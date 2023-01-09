@@ -1,0 +1,3 @@
+# Run rustfmt with this config (it should be picked up automatically).
+use_small_heuristics = "Max"
+merge_derives = false
