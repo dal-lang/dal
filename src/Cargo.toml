@@ -1,3 +1,2 @@
 [workspace]
-members = ["dal", "llvm", "lexer", "parser", "ast"]
-
+members = ["dal", "llvm", "lexer", "parser", "ast", "span", "analyzer"]
