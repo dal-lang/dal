@@ -1,2 +1,0 @@
-[workspace]
-members = ["dal", "llvm", "lexer", "parser", "ast", "span", "analyzer"]
