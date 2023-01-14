@@ -1,0 +1,15 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: ubuntu:jammy
+    steps:
+      - checkout
+      - run:
+          name: Install llvm.
+          command: sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+
+      - run:
+          name: Build
+          command: mkdir build && cd build && cmake .. && make
