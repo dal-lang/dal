@@ -20,9 +20,8 @@ jobs:
         # Download llvm.
       - name: Configure llvm.
         run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 15.0.5
+          deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main
+          deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
