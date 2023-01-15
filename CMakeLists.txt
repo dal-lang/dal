@@ -33,7 +33,7 @@ set(PROJECT_VERSION "0.1.0")
 project(
   dal
   VERSION ${PROJECT_VERSION}
-  LANGUAGES CXX)
+  LANGUAGES C CXX)
 
 # Configure config.h
 configure_file("${CMAKE_SOURCE_DIR}/cmake/templates/config.h.in"
