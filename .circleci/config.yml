@@ -9,7 +9,7 @@ jobs:
 
       - run:
           name: Configure LLVM
-          command: apt-get update -y && apt-get install wget lsb-release wget software-properties-common gnupg cmake ninja-build gcc -y && echo -ne '\n' | bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+          command: apt-get update -y && apt-get install lsb-release wget software-properties-common gnupg cmake ninja-build gcc -y && echo -ne '\n' | bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
       - run:
           name: Build
