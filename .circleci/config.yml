@@ -6,6 +6,11 @@ jobs:
       - image: ademr0/llvm:latest
     steps:
       - checkout
+
+      - run:
+          name: Setup
+          command: apt-get update -y && apt-get install cmake -y
+
       - run:
           name: Build
-          command: mkdir build && cd build && cmake .. && make
+          command: mkdir build && cd build && cmake -G Ninja .. && ninja
