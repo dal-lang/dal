@@ -3,9 +3,13 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: ademr0/llvm:latest
+      - image: cibase
     steps:
       - checkout
+
+      - run:
+          name: Configure LLVM
+          command: apt-get install wget lsb-release wget software-properties-common gnupg cmake ninja-build gcc -y && sudo -ne '\n' | bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
       - run:
           name: Build
