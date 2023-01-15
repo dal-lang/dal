@@ -13,13 +13,10 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: ademr0/llvm:latest
 
     steps:
       - uses: actions/checkout@v3
-
-        # Download llvm.
-      - name: Configure llvm.
-        run: sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
