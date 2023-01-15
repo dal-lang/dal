@@ -12,13 +12,14 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    container: ubuntu:jammy
 
     steps:
       - uses: actions/checkout@v3
 
       - name: Configure LLVM
-        run: sudo apt-get install wget lsb-release wget software-properties-common gnupg cmake ninja-build gcc -y && sudo -ne '\n' | sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+        run: apt-get update -y && apt-get install wget lsb-release wget software-properties-common gnupg cmake ninja-build gcc -y && echo -ne '\n' | bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G Ninja
