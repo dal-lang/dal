@@ -1,6 +1,6 @@
 ![DAL](https://avatars.githubusercontent.com/u/117913616?s=400&u=b56d1407d15a00a4ae8e30f9515263271320e3a7&v=4)
 
-Dal is a general-purpose programming language designed to be simple yet powerfull.
+Dal is a general-purpose programming language designed to be simple yet powerful.
 
 ## Building
 ### Status
