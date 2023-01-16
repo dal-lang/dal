@@ -21,7 +21,7 @@ make
 
 ### Goals
 - Do not depend on libc unless explicitly linked.
-- Optionall standard library and will statically linked if used.
+- Optional standard library and will statically linked if used.
 - Generics so that one can write efficient data structures that work for any data type.
 - Ability to run arbitrary code at compile time and generate code.
 - Provide build system and package manager.
