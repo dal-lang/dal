@@ -49,9 +49,9 @@ add_subdirectory(libast)
 add_subdirectory(libcli)
 add_subdirectory(libcodegen)
 add_subdirectory(liblexer)
-add_subdirectory(libos)
 add_subdirectory(libparser)
 add_subdirectory(libutils)
+add_subdirectory(libspan)
 
 # Export compile-command.json for clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -61,4 +61,4 @@ include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
 
 # Executable
 add_executable(dal src/main.cpp)
-target_link_libraries(dal PRIVATE cli)
+target_link_libraries(dal PRIVATE cli lexer parser)

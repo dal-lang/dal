@@ -1,0 +1,11 @@
+@link("c")
+extern {
+    pub fn printf(__fmt: *const *const u8, ...) -> i32
+    pub fn exit(__status: i32) -> !
+}
+
+pub fn _start() -> ! {
+    let s = "Hello, world!\n"
+    printf(s)
+    exit(0)
+}
