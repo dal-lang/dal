@@ -9,16 +9,42 @@
 #include <config.h>
 #include <libcli/CLI.hpp>
 #include <libcli/Command.hpp>
+#include <libutils/Os.hpp>
+#include <libutils/Fmt.hpp>
+#include <liblexer/Lexer.hpp>
+#include <libparser/Parser.hpp>
 
 void buildHandler(Context *ctx) {
-    printf("Hello world! %s\n", ctx->getStringArg("output")->c_str());
+    std::error_code ec;
+    auto path = Os::getAbsolutePath(*ctx->getStringArg("input"), ec);
+    if (ec)
+    {
+        Fmt::panic("%s: %s\n", Fmt::redBold("Failed finding `%s`"), *ctx->getStringArg("input"), ec.message());
+    }
+    auto content = Os::readFile(path, ec);
+    if (ec)
+    {
+        Fmt::panic("%s: %s", Fmt::redBold("Input file not found"), ec.message());
+    }
+
+    Fmt::println("Content: %s", content);
+
+    dal::Lexer lexer(content);
+    std::vector<dal::Token> tokens = lexer.lex();
+    for (auto token : tokens)
+    {
+        Fmt::println("%s", token.toString(content));
+    }
+
+    dal::Parser parser(content, tokens);
+    auto ast = parser.parse();
+    Fmt::println("%s", ast->to_string());
 }
 
-int main(int argc, char *argv[]) {
-    // Create a new CLI object
+int main(int argc, char *argv[])
+{
     CLI cli(DAL_PROJECT_NAME, DAL_VERSION, "DAL is a compiler for the DAL language");
 
-    // Build command.
     Command build("build", "Compile the Dal source code", "dal build [options]");
     build.addBooleanArgument("release", "Build the project in release mode", "dal build --release");
     build.addBooleanArgument("strip", "Strip the binary after building", "dal build --strip");
@@ -28,15 +54,11 @@ int main(int argc, char *argv[]) {
     build.addStringArgument("input", "Set input file", "dal build --input <filename>", true);
     build.setHandler(buildHandler);
 
-    // Assign build command to cli.
     cli.addCommand(&build);
 
-    // Format command.
     Command format("format", "Format the Dal source code", "dal format [options] <file>");
 
-    // Assign format command to cli.
     cli.addCommand(&format);
 
-    // parse command.
     return cli.parse(argc, argv);
 }
