@@ -67,7 +67,7 @@ int CLI::parse(int argc, char **argv) {
 
 int CLI::fallback(const std::string &command, const std::string &msg, int exit_code) {
     if (!command.empty()) {
-        Fmt::println<std::string, std::string>("%s `%s`", Fmt::red("Cannot find command"), command);
+        Fmt::println("%s `%s`", Fmt::red("Cannot find command"), command);
         return this->fallback("", "", exit_code);
     } else {
         Fmt::println("%s: %s <command> [arguments]", Fmt::greenBold("Usage"), this->app_name);
