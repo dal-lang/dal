@@ -6,15 +6,13 @@
  * https://opensource.org/licenses/MIT for full license details.
  */
 
-#ifndef DAL_UTILS_HPP
-#define DAL_UTILS_HPP
+#include "Error.hpp"
 
-#include <string>
+Error::Error(const std::string &msg, Span span) {
+    this->m_msg = msg;
+    this->m_span = span;
+}
 
-class Utils {
-public:
-    static bool hasPrefix(const std::string &str, const std::string &prefix);
-};
+void Error::panic(const std::string &source) {
 
-
-#endif //DAL_UTILS_HPP
+}
