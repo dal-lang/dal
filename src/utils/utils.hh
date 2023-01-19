@@ -6,15 +6,15 @@
  * https://opensource.org/licenses/MIT for full license details.
  */
 
-#ifndef DAL_UTILS_HPP
-#define DAL_UTILS_HPP
+#ifndef _DAL_UTILS_UTILS_HH_
+#define _DAL_UTILS_UTILS_HH_
 
 #include <string>
 
-class Utils {
-public:
-    static bool hasPrefix(const std::string &str, const std::string &prefix);
-};
+namespace dal::utils {
 
+    bool hasPrefix(const std::string &str, const std::string &prefix);
 
-#endif //DAL_UTILS_HPP
+} // dal::utils
+
+#endif //_DAL_UTILS_UTILS_HH_

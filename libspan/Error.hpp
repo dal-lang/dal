@@ -11,7 +11,7 @@
 
 
 #include <string>
-#include "Span.hpp"
+#include "src/utils/span.hpp"
 
 class Error {
 private:

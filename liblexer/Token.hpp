@@ -10,7 +10,7 @@
 #define DAL_TOKEN_HPP
 
 #include <string>
-#include <libspan/Span.hpp>
+#include "src/utils/span.hpp"
 
 namespace dal {
 

@@ -44,21 +44,21 @@ configure_file("${CMAKE_SOURCE_DIR}/cmake/templates/config.h.in"
 include(FindLLVM)
 find_llvm()
 
-add_subdirectory(libanalyzer)
-add_subdirectory(libast)
-add_subdirectory(libcli)
-add_subdirectory(libcodegen)
-add_subdirectory(liblexer)
-add_subdirectory(libparser)
-add_subdirectory(libutils)
-add_subdirectory(libspan)
+# GTest
+include(FetchContent)
+FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+enable_testing()
+include(GoogleTest)
 
 # Export compile-command.json for clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Include directories
-include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
-
-# Executable
-add_executable(dal src/main.cpp)
-target_link_libraries(dal PRIVATE cli lexer parser)
+# Add subdirectories
+add_subdirectory(src)
