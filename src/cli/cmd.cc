@@ -6,164 +6,201 @@
  * https://opensource.org/licenses/MIT for full license details.
  */
 
-
-#include "cmd.hh"
-#include "utils/fmt.hh"
-#include "utils/utils.hh"
+#include <cli/cli_app.hh>
+#include <algorithm>
 
 namespace dal::cli {
 
-    cli_cmd::cli_cmd(std::string name, std::string description, std::string usage) {
-        this->m_name = std::move(name);
-        this->m_desc = std::move(description);
-        this->m_usage = std::move(usage);
+void cli_command::set_name(const std::string &name) {
+  this->m_name = name;
+}
+
+void cli_command::set_description(const std::string &description) {
+  this->m_desc = description;
+}
+
+void cli_command::set_usage(const std::string &usage) {
+  this->m_usage = usage;
+}
+
+void cli_command::add_arg(cli_arg *arg) {
+  this->m_args.insert({arg->get_name(), arg});
+}
+
+void cli_command::set_handler(command_handler handler) {
+  this->m_handler = handler;
+}
+
+std::string cli_command::get_name() const {
+  return this->m_name;
+}
+
+std::string cli_command::get_description() const {
+  return this->m_desc;
+}
+
+std::string cli_command::get_usage() const {
+  return this->m_usage;
+}
+
+static bool has_prefix(const std::string &str, const std::string &prefix) {
+  return std::mismatch(prefix.begin(), prefix.end(), str.begin()).first==prefix.end();
+}
+
+int cli_command::parse(std::vector<std::string> args) {
+  auto err_label = fmt::red_bold("error");
+  std::map<std::string, bool> supplied;
+  for (int i = 0; i < args.size(); i++) {
+    auto arg = args[i];
+    if (has_prefix(arg, "--"))
+      arg = arg.substr(2);
+
+    auto flag = this->m_args.find(arg);
+    if (flag->first.empty()) {
+      fmt::eprintln("{}: Unknown options `--{}`", err_label, arg);
+      return this->help(1);
     }
 
-    void cli_cmd::add_arg(cli_arg *argument) {
-        this->m_args.insert(std::pair<std::string, cli_arg *>(argument->get_name(), argument));
+    switch (flag->second->get_type()) {
+    case cli_arg_type::string: {
+      if (i + 1 >= args.size()) {
+        fmt::eprintln("{}: Missing value for argument `--{}`", err_label, arg);
+        return 1;
+      }
+      i++;
+      flag->second->set_value(args[i]);
+      supplied[flag->second->get_name()] = true;
+      continue;
+    }
+    case cli_arg_type::number: {
+      if (i + 1 >= args.size()) {
+        fmt::eprintln("{}: Missing value for argument `--{}`", err_label, arg);
+        return 1;
+      }
+      i++;
+      try {
+        flag->second->set_value(std::stoi(args[i]));
+      } catch (std::invalid_argument &e) {
+        fmt::eprintln("{}: Invalid value for argument `--{}`", err_label, arg);
+      }
+      supplied[flag->second->get_name()] = true;
+      continue;
+    }
+    case cli_arg_type::boolean: {
+      flag->second->set_value(true);
+      supplied[flag->second->get_name()] = true;
+      continue;
+    }
+    }
+  }
+
+  // verify all arguments.
+  for (const auto &m_arg : this->m_args) {
+    auto arg = m_arg.second;
+    switch (arg->get_type()) {
+    case cli_arg_type::string: {
+      if (supplied[arg->get_name()] || !arg->get_default_value<std::string>().empty()) {
+        continue;
+      }
+      if (arg->is_required() && arg->get_default_value<std::string>().empty()) {
+        fmt::eprintln("{}: Argument `--{}` marked as required, but no value was supplied", err_label, arg->get_name());
+        return 1;
+      }
+      break;
+    }
+    case cli_arg_type::number: {
+      if (supplied[arg->get_name()] || arg->get_default_value<int>()!=0) {
+        continue;
+      }
+      if (arg->is_required()) {
+        fmt::eprintln("{}: Argument `--{}` marked as required, but no value was supplied", err_label, arg->get_name());
+        return 1;
+      }
+      break;
+    }
+    case cli_arg_type::boolean: {
+      if (supplied[arg->get_name()] || arg->get_default_value<bool>()) {
+        continue;
+      }
+      if (arg->is_required()) {
+        fmt::eprintln("{}: Argument `--{}` marked as required, but no value was supplied", err_label, arg->get_name());
+        return 1;
+      }
+      break;
+    }
+    }
+  }
+
+  context ctx(this->m_args);
+  return this->m_handler(ctx);
+}
+
+int cli_command::help(int exit_code) {
+  auto stream = exit_code==0 ? stdout : stderr;
+  fmt::print(stream, "{}: {} {}\n", fmt::green_bold("Usage"), this->m_name, this->m_usage);
+
+  if (!this->m_args.empty())
+    fmt::print(stream, "{}:\n", fmt::green_bold("Options"));
+
+  unsigned long longest_name = 8;
+  std::string keys[this->m_args.size()];
+  int i = 0;
+  for (auto &arg : this->m_args) {
+    if (arg.first.length() > longest_name)
+      longest_name = arg.first.length();
+    keys[i] = arg.first;
+    i++;
+  }
+
+  std::sort(keys, keys + this->m_args.size());
+
+  for (auto &key : keys) {
+    auto arg = this->m_args[key];
+    auto name = arg->get_name();
+    auto desc = arg->get_description();
+    auto usage = arg->get_usage();
+    auto required = arg->is_required();
+    std::string default_value;
+
+    if (arg->get_type()==cli_arg_type::string) {
+      default_value = arg->get_default_value<std::string>();
+    } else if (arg->get_type()==cli_arg_type::number) {
+      default_value = std::to_string(arg->get_default_value<int>());
+    } else if (arg->get_type()==cli_arg_type::boolean) {
+      default_value = arg->get_default_value<bool>() ? "true" : "false";
     }
 
-    void
-    cli_cmd::add_string_arg(std::string arg_name, std::string arg_desc, std::string arg_usage, bool is_required) {
-        auto *argument = new string_arg();
-        argument->set_name(std::move(arg_name));
-        argument->set_desc(std::move(arg_desc));
-        argument->set_usage(std::move(arg_usage));
-        argument->set_required(is_required);
-        this->add_arg(argument);
-    }
+    std::string usage_str = "Usage";
+    std::string required_str = "Required";
+    std::string default_value_str = "Default";
 
-    void
-    cli_cmd::add_bool_arg(std::string arg_name, std::string arg_desc, std::string arg_usage, bool is_required) {
-        auto *argument = new bool_arg();
-        argument->set_name(std::move(arg_name));
-        argument->set_desc(std::move(arg_desc));
-        argument->set_usage(std::move(arg_usage));
-        argument->set_required(is_required);
-        this->add_arg(argument);
-    }
+    fmt::print(stream,
+               "  --{}{}{}{}{}\n",
+               name,
+               std::string(longest_name - name.length(), ' '),
+               fmt::yellow(":"),
+               std::string(2, ' '),
+               desc);
+    fmt::print(stream,
+               "    {}{}   {}\n",
+               fmt::yellow(usage_str),
+               std::string(longest_name - usage_str.length(), ' '),
+               usage);
+    if (required)
+      fmt::print(stream,
+                 "    {}{}   {}\n",
+                 fmt::yellow(required_str),
+                 std::string(longest_name - required_str.length(), ' '),
+                 required);
+    if (!default_value.empty())
+      fmt::print(stream,
+                 "    {}{}   {}\n",
+                 fmt::yellow(default_value_str),
+                 std::string(longest_name - default_value_str.length(), ' '),
+                 default_value);
+  }
 
-    void cli_cmd::set_handler(cmd_handler command_handler) {
-        this->m_handler = command_handler;
-    }
+  return exit_code;
+}
 
-    std::string cli_cmd::get_name() {
-        return this->m_name;
-    }
-
-    std::string cli_cmd::get_desc() {
-        return this->m_desc;
-    }
-
-    [[maybe_unused]] std::string cli_cmd::get_usage() {
-        return this->m_usage;
-    }
-
-    void cli_cmd::parse(std::vector<std::string> args) {
-        // Loop through all arguments.
-        for (int i = 0; i < args.size(); i++) {
-            auto arg = args[i];
-            std::string prefix = "--";
-            // if argument start with '--', we need to strip it.
-            if (utils::hasPrefix(arg, prefix)) {
-                arg = arg.substr(prefix.length());
-            }
-            // Check if the argument exist on the command.
-            auto flag = this->m_args.find(arg);
-            if (flag->first.empty()) {
-                // The argument doesn't match with the available options.
-                cli_cmd::fallback(utils::fmt::format("%s: --%s", utils::fmt::red_bold("Unknown options"), arg));
-            }
-
-            switch (flag->second->get_kind()) {
-                case arg_kind_bool:
-                    if (i + 1 >= args.size()) {
-                        cli_cmd::fallback(
-                                utils::fmt::format("%s: --%s", utils::fmt::red_bold("Missing value for argument"),
-                                                   arg));
-                    } else if (utils::hasPrefix(args[i + 1], prefix)) {
-                        cli_cmd::fallback(
-                                utils::fmt::format("%s: --%s", utils::fmt::red_bold("Missing value for argument"),
-                                                   arg));
-                    }
-                    i++;
-                    reinterpret_cast<string_arg *>(flag->second)->set_value(args[i]);
-                    continue;
-                case arg_kind_string:
-                    reinterpret_cast<bool_arg *>(flag->second)->set_value(true);
-                    continue;
-            }
-        }
-
-        // Verify if all arguments has been supplied.
-        for (const auto &argument: this->m_args) {
-            auto arg = argument.second;
-            switch (arg->get_kind()) {
-                case arg_kind_string: {
-                    auto v = reinterpret_cast<bool_arg *>(arg);
-                    if (v->is_required() && !v->get_default_value() && !v->get_value())
-                        cli_cmd::fallback(
-                                utils::fmt::format("%s: --%s", utils::fmt::red_bold("Missing required argument"),
-                                                   arg->get_name()));
-                    break;
-                }
-                case arg_kind_bool: {
-                    auto v = reinterpret_cast<string_arg *>(arg);
-                    if (v->is_required() && v->get_default_value().empty() && v->get_value().empty())
-                        cli_cmd::fallback(
-                                utils::fmt::format("%s: --%s", utils::fmt::red_bold("Missing required argument"),
-                                                   arg->get_name()));
-                    break;
-                }
-            }
-        }
-
-        context context(this->m_args);
-        this->run(&context);
-    }
-
-    void cli_cmd::fallback(const std::string &msg) {
-        utils::fmt::panic(msg);
-    }
-
-    void cli_cmd::run(context *ctx) {
-        if (!this->m_handler) {
-            cli_cmd::fallback(
-                    utils::fmt::format("%s: %s", utils::fmt::red_bold("Missing handler for command"), this->m_name));
-        }
-        this->m_handler(ctx);
-    }
-
-    void cli_cmd::print_help() {
-        utils::fmt::println(utils::fmt::format("%s: %s", utils::fmt::green_bold("Usage"), this->m_usage));
-        // If the command has arguments, print it.
-        if (!this->m_args.empty()) {
-            ssize_t longest_name = 0;
-            ssize_t longest_usage = 0;
-            // Calculate the longest name and usage to make the output looks good.
-            for (const auto &argument: this->m_args) {
-                auto arg = argument.second;
-                if (arg->get_name().length() > longest_name) {
-                    longest_name = arg->get_name().length();
-                }
-                if (arg->get_usage().length() > longest_usage) {
-                    longest_usage = arg->get_usage().length();
-                }
-            }
-            utils::fmt::println("%s:", utils::fmt::green_bold("Arguments"));
-            for (const auto &argument: this->m_args) {
-                auto arg = argument.second;
-                std::string name = arg->get_name();
-                std::string usage = arg->get_usage();
-                std::string desc = arg->get_desc();
-                // Add padding to the name and usage.
-                name.append(longest_name - name.length(), ' ');
-                usage.append(longest_usage - usage.length(), ' ');
-                utils::fmt::println(
-                        utils::fmt::format("  %s  %s  %s", utils::fmt::green_bold(name), utils::fmt::yellow(usage),
-                                           desc));
-            }
-        }
-    }
-
-} // dal::cli
+} // namespace dal::cli

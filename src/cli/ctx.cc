@@ -6,29 +6,57 @@
  * https://opensource.org/licenses/MIT for full license details.
  */
 
-
-#include "ctx.hh"
+#include <cli/cli_app.hh>
 
 namespace dal::cli {
 
-    context::context(std::map<std::string, cli_arg *> arguments) {
-        this->arguments = std::move(arguments);
-    }
+context::context(const std::map<std::string, cli_arg *> &m_args) {
+  this->m_args = m_args;
+}
 
-    std::string *context::get_string_arg(const std::string &key) {
-        auto arg = this->arguments.find(key)->second;
-        if (!arg || arg->get_kind() != arg_kind_bool) {
-            return nullptr;
-        }
-        return new std::string(reinterpret_cast<string_arg *>(arg)->get_value());
+std::string context::get_string(const std::string &name) {
+  std::string result;
+  if (this->m_args.find(name)!=this->m_args.end()) {
+    auto arg = this->m_args.at(name);
+    if (arg->get_type()==cli_arg_type::string) {
+      if (!arg->get_value<std::string>().empty()) {
+        result = arg->get_value<std::string>();
+      } else {
+        result = arg->get_default_value<std::string>();
+      }
     }
+  }
+  return result;
+}
 
-    bool *context::get_bool_arg(const std::string &key) {
-        auto arg = this->arguments.find(key)->second;
-        if (!arg || arg->get_kind() != arg_kind_string) {
-            return nullptr;
-        }
-        return new bool(reinterpret_cast<bool_arg *>(arg)->get_value());
+int context::get_int(const std::string &name) {
+  int result = 0;
+  if (this->m_args.find(name)!=this->m_args.end()) {
+    auto arg = this->m_args.at(name);
+    if (arg->get_type()==cli_arg_type::number) {
+      if (arg->get_value<int>()!=0) {
+        result = arg->get_value<int>();
+      } else {
+        result = arg->get_default_value<int>();
+      }
     }
+  }
+  return result;
+}
 
-} // dal::cli
+bool context::get_bool(const std::string &name) {
+  bool result = false;
+  if (this->m_args.find(name)!=this->m_args.end()) {
+    auto arg = this->m_args.at(name);
+    if (arg->get_type()==cli_arg_type::boolean) {
+      if (arg->get_value<bool>()) {
+        result = arg->get_value<bool>();
+      } else {
+        result = arg->get_default_value<bool>();
+      }
+    }
+  }
+  return result;
+}
+
+} // namespace dal::cli
