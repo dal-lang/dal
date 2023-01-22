@@ -7,9 +7,9 @@
  */
 
 #include <core/os.hh>
-#include <csignal>
 #include <filesystem>
 #include <fstream>
+#include <unistd.h>
 
 namespace dal::core::os {
 

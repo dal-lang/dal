@@ -10,7 +10,7 @@
 #define DAL_FMT_CORE_HH
 
 #include <iostream>
-#include <csignal>
+#include <unistd.h>
 #include "format.hh"
 
 namespace fmt {
