@@ -1,13 +1,13 @@
 include_directories(../include ${CMAKE_BINARY_DIR})
 
 # ./cli
-file(GLOB CLI_SOURCES ./cli/*.cc)
-add_library(cli ${CLI_SOURCES} fmt_impl.cc)
+set(cli_srcs cli/app.cc cli/arg.cc cli/cmd.cc cli/ctx.cc)
+add_library(cli ${cli_srcs} fmt_impl.cc)
 
 # ./core
-file(GLOB CORE_SOURCES ./core/*.cc)
-add_library(core ${CORE_SOURCES} fmt_impl.cc)
+set(core_srcs core/ast.cc core/error.cc core/os.cc core/parser.cc core/span.cc core/token.cc core/tokenizer.cc core/function_parser.cc core/block_parser.cc core/expr_parser.cc)
+add_library(core ${core_srcs} fmt_impl.cc)
 
 set(dal_src main.cc)
 add_executable(dal ${dal_src})
-target_link_libraries(dal cli)
+target_link_libraries(dal cli core)

@@ -8,6 +8,7 @@
 
 #include <cli/cli_app.hh>
 #include <algorithm>
+#include <utility>
 
 namespace dal::cli {
 
@@ -27,8 +28,8 @@ void cli_command::add_arg(cli_arg *arg) {
   this->m_args.insert({arg->get_name(), arg});
 }
 
-void cli_command::set_handler(command_handler handler) {
-  this->m_handler = handler;
+void cli_command::set_handler(std::function<int(context)> handler) {
+  this->m_handler = std::move(handler);
 }
 
 std::string cli_command::get_name() const {

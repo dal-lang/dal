@@ -7,13 +7,40 @@
  */
 
 #include <cli/cli_app.hh>
+#include <core/os.hh>
+#include <core/tokenizer.hh>
+#include <core/parser.hh>
 #include <config.h>
 
 using namespace dal::cli;
+using namespace dal;
 
 int build_handler(context ctx) {
-  fmt::println("file: {}", ctx.get_string("input"));
-  fmt::println("output: {}", ctx.get_string("type"));
+  auto in_file = ctx.get_string("input");
+  std::error_code ec;
+  auto content = core::os::read_file(in_file, ec);
+  if (ec) {
+    fmt::eprintln("{}: {}", fmt::red_bold("error"), ec.message());
+    return 1;
+  }
+
+  fmt::println("Tokenize\n{}", "-------------------------");
+
+  core::tokenizer tk;
+  auto tokens = tk.tokenize(content);
+  if (!tk.has_error()) {
+    for (auto &token : tokens) {
+      fmt::println("{}", token.t_str(content));
+    }
+  } else {
+    tk.print_error();
+  }
+
+  fmt::println("\nParse\n{}", "-------------------------");
+  core::parser p(content, tokens);
+
+  auto ast = p.parse();
+  fmt::println("{}", ast->to_string(0));
   return 0;
 }
 

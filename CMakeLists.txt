@@ -30,11 +30,17 @@ include(DalPolicy)
 dal_policy()
 
 # Project name and version should be set after cmake_policy CMP0048
-set(PROJECT_VERSION "0.1.0")
+set(PROJECT_VERSION 0.1.0)
 project(
         dal
         VERSION ${PROJECT_VERSION}
         LANGUAGES C CXX)
+
+# License
+file(READ ${CMAKE_SOURCE_DIR}/LICENSE LICENSE_TEXT HEX)
+string(REGEX MATCHALL ".." LICENSE_TEXT "${LICENSE_TEXT}")
+string(REGEX REPLACE ";" ",\n\t0x" LICENSE_TEXT "${LICENSE_TEXT}")
+set(LICENSE_TEXT "0x${LICENSE_TEXT}")
 
 # Configure config.h
 configure_file("${CMAKE_SOURCE_DIR}/cmake/templates/config.h.in"
@@ -44,21 +50,9 @@ configure_file("${CMAKE_SOURCE_DIR}/cmake/templates/config.h.in"
 include(FindLLVM)
 find_llvm()
 
-# GTest
-include(FetchContent)
-FetchContent_Declare(
-        googletest
-        URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
-)
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-
-enable_testing()
-include(GoogleTest)
-
-# Export compile-command.json for clangd
+# Export compile-cli_command.json for clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Add subdirectories
 add_subdirectory(src)
+add_subdirectory(tests)
