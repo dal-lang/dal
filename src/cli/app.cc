@@ -57,11 +57,12 @@ int cli_app::parse(int argc, char **argv) {
 
   if (cmd=="help") {
     if (!args[0].empty()) {
-      auto command = &this->m_commands[args[0]];
-      if (command)
-        return command->help();
-      else
+      auto command = this->m_commands.find(args[0]);
+      if (command!=this->m_commands.end()) {
+        return command->second.help();
+      } else {
         return this->fallback(1, "Command not found");
+      }
     }
     return this->help();
   } else if (cmd=="license") {
@@ -85,7 +86,7 @@ int cli_app::fallback(int exit_code, const std::string &message) {
 
   if (!message.empty())
     fmt::print(stream, "{}: {}\n\n", fmt::red_bold("error"), message);
-  fmt::print(stream, "{}: {}\n", fmt::green_bold("Usage"), this->m_app_usage);
+  fmt::print(stream, "{}: {}\n\n", fmt::green_bold("Usage"), this->m_app_usage);
 
   if (!this->m_commands.empty()) {
     fmt::print(stream, "{}:\n", fmt::green_bold("Commands"));
@@ -114,7 +115,7 @@ int cli_app::fallback(int exit_code, const std::string &message) {
     }
   }
 
-  fmt::print(stream, "{}:\n", fmt::green_bold("Additional commands"));
+  fmt::print(stream, "\n{}:\n", fmt::green_bold("Additional commands"));
   unsigned long longest_name = 0;
   for (const auto &command : this->m_additional_commands) {
     if (command.first.length() > longest_name)

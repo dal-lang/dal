@@ -138,10 +138,10 @@ int cli_command::parse(std::vector<std::string> args) {
 
 int cli_command::help(int exit_code) {
   auto stream = exit_code==0 ? stdout : stderr;
-  fmt::print(stream, "{}: {} {}\n", fmt::green_bold("Usage"), this->m_name, this->m_usage);
+  fmt::print(stream, "{}: {}\n", fmt::green_bold("Usage"), this->m_usage);
 
   if (!this->m_args.empty())
-    fmt::print(stream, "{}:\n", fmt::green_bold("Options"));
+    fmt::print(stream, "\n{}:\n", fmt::green_bold("Options"));
 
   unsigned long longest_name = 8;
   std::string keys[this->m_args.size()];
