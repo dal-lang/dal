@@ -16,3 +16,7 @@ jobs:
           command: mkdir build && cd build && cmake -G Ninja .. && ninja
           environment:
             CXX: clang++-15
+
+      - run:
+          name: Test
+          command: cd build && ctest -V

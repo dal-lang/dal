@@ -8,4 +8,8 @@
 
 #define DAL_PROJECT_NAME "@PROJECT_NAME@"
 
+static const char DAL_LICENSE[] = {
+    @LICENSE_TEXT@, 0
+};
+
 #endif // DAL_CONFIG_HPP

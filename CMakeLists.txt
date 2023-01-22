@@ -30,11 +30,17 @@ include(DalPolicy)
 dal_policy()
 
 # Project name and version should be set after cmake_policy CMP0048
-set(PROJECT_VERSION "0.1.0")
+set(PROJECT_VERSION 0.1.0)
 project(
         dal
         VERSION ${PROJECT_VERSION}
         LANGUAGES C CXX)
+
+# License
+file(READ ${CMAKE_SOURCE_DIR}/LICENSE LICENSE_TEXT HEX)
+string(REGEX MATCHALL ".." LICENSE_TEXT "${LICENSE_TEXT}")
+string(REGEX REPLACE ";" ",\n\t0x" LICENSE_TEXT "${LICENSE_TEXT}")
+set(LICENSE_TEXT "0x${LICENSE_TEXT}")
 
 # Configure config.h
 configure_file("${CMAKE_SOURCE_DIR}/cmake/templates/config.h.in"
@@ -44,21 +50,9 @@ configure_file("${CMAKE_SOURCE_DIR}/cmake/templates/config.h.in"
 include(FindLLVM)
 find_llvm()
 
-add_subdirectory(libanalyzer)
-add_subdirectory(libast)
-add_subdirectory(libcli)
-add_subdirectory(libcodegen)
-add_subdirectory(liblexer)
-add_subdirectory(libparser)
-add_subdirectory(libutils)
-add_subdirectory(libspan)
-
-# Export compile-command.json for clangd
+# Export compile-cli_command.json for clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Include directories
-include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
-
-# Executable
-add_executable(dal src/main.cpp)
-target_link_libraries(dal PRIVATE cli lexer parser)
+# Add subdirectories
+add_subdirectory(src)
+add_subdirectory(tests)

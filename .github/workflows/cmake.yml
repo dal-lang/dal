@@ -2,9 +2,9 @@ name: CMake
 
 on:
   push:
-    branches: ["master"]
+    branches: [ "master" ]
   pull_request:
-    branches: ["master"]
+    branches: [ "master" ]
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -27,3 +27,6 @@ jobs:
 
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+      - name: Test
+        run: ctest --output-on-failure -C ${{env.BUILD_TYPE}} -C ${{env.BUILD_TYPE}} --build ${{github.workspace}}/build

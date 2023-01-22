@@ -1,6 +1,8 @@
 # CLION
 .idea/
 
+.cache
+
 # cmake
 cmake-build-*
 cmake-build-*/*
