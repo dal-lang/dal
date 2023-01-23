@@ -39,6 +39,9 @@ std::unique_ptr<block_ast> parser::parse_block(bool is_required) {
     if (tok->t_kind()==token_kind::punct_rbrace) {
       this->m_index++;
       return block;
+    } else if (tok->t_kind()==token_kind::punct_semicolon) {
+      // FIXME: this is to avoid infinite loop when finding `;`.
+      this->error(*tok, "Unexpected ';'");
     }
   }
 }

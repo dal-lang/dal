@@ -22,7 +22,7 @@ public:
   void set_name(const std::string &name);
   void set_description(const std::string &description);
   void set_usage(const std::string &usage);
-  void add_arg(cli_arg *arg);
+  void add_arg(std::unique_ptr<cli_arg> arg);
   void set_handler(std::function<int(context)> handler);
 
   [[nodiscard]] std::string get_name() const;
@@ -35,8 +35,8 @@ private:
   std::string m_name;
   std::string m_desc;
   std::string m_usage;
-  std::map<std::string, cli_arg *> m_args;
-  std::function<int(context)> m_handler = nullptr;
+  std::map<std::string, std::shared_ptr<cli_arg>> m_args;
+  std::function<int(context)> m_handler;
 };
 
 } // namespace dal::cli

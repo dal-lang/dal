@@ -22,11 +22,12 @@ public:
   tokenizer() = default;
   ~tokenizer() = default;
 
-  std::vector<token> tokenize(const std::string &str);
+  std::vector<token> tokenize(const std::string &str, const std::string &path);
   [[nodiscard]] bool has_error() const;
   void print_error();
 private:
   std::string m_str;
+  std::string m_path;
   std::vector<char> m_src;
   std::vector<error> m_errors;
   span m_span;

@@ -8,7 +8,7 @@
 TEST(Tokenizer, Tokenize) {
   std::string source = "let x = 10";
   dal::core::tokenizer tk;
-  auto tokens = tk.tokenize(source);
+  auto tokens = tk.tokenize(source, "test");
   ASSERT_EQ(tokens.size(), 5);
   ASSERT_EQ(tokens[0].t_kind(), dal::core::token_kind::kw_let);
   ASSERT_EQ(tokens[1].t_kind(), dal::core::token_kind::ident);

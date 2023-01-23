@@ -8,6 +8,8 @@
 
 #define DAL_PROJECT_NAME "@PROJECT_NAME@"
 
+#define DAL_STD_DIR "@DAL_STD_DIR@"
+
 static const char DAL_LICENSE[] = {
     @LICENSE_TEXT@, 0
 };

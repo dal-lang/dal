@@ -136,13 +136,13 @@ arg_builder &arg_builder::set_bool_default(bool default_value) {
   return *this;
 }
 
-cli_arg *arg_builder::build_string() {
-  auto arg = new cli_arg(cli_arg_type::string);
-  arg->set_name(this->m_name);
-  arg->set_description(this->m_desc);
-  arg->set_usage(this->m_usage);
-  arg->set_required(this->m_required);
-  arg->set_default_value(this->m_str_default_value);
+std::unique_ptr<cli_arg> arg_builder::build_string() {
+  cli_arg arg(cli_arg_type::string);
+  arg.set_name(this->m_name);
+  arg.set_description(this->m_desc);
+  arg.set_usage(this->m_usage);
+  arg.set_required(this->m_required);
+  arg.set_default_value(this->m_str_default_value);
 
   // reset builder
   this->m_name = "";
@@ -153,16 +153,16 @@ cli_arg *arg_builder::build_string() {
   this->m_int_default_value = 0;
   this->m_bool_default_value = false;
 
-  return dynamic_cast<cli_arg *>(arg);
+  return std::make_unique<cli_arg>(arg);
 }
 
-cli_arg *arg_builder::build_int() {
-  auto arg = new cli_arg(cli_arg_type::number);
-  arg->set_name(this->m_name);
-  arg->set_description(this->m_desc);
-  arg->set_usage(this->m_usage);
-  arg->set_required(this->m_required);
-  arg->set_default_value(this->m_int_default_value);
+std::unique_ptr<cli_arg> arg_builder::build_int() {
+  cli_arg arg(cli_arg_type::number);
+  arg.set_name(this->m_name);
+  arg.set_description(this->m_desc);
+  arg.set_usage(this->m_usage);
+  arg.set_required(this->m_required);
+  arg.set_default_value(this->m_int_default_value);
 
   // reset builder
   this->m_name = "";
@@ -173,16 +173,16 @@ cli_arg *arg_builder::build_int() {
   this->m_int_default_value = 0;
   this->m_bool_default_value = false;
 
-  return dynamic_cast<cli_arg *>(arg);
+  return std::make_unique<cli_arg>(arg);
 }
 
-cli_arg *arg_builder::build_bool() {
-  auto arg = new cli_arg(cli_arg_type::boolean);
-  arg->set_name(this->m_name);
-  arg->set_description(this->m_desc);
-  arg->set_usage(this->m_usage);
-  arg->set_required(this->m_required);
-  arg->set_default_value(this->m_bool_default_value);
+std::unique_ptr<cli_arg> arg_builder::build_bool() {
+  cli_arg arg(cli_arg_type::boolean);
+  arg.set_name(this->m_name);
+  arg.set_description(this->m_desc);
+  arg.set_usage(this->m_usage);
+  arg.set_required(this->m_required);
+  arg.set_default_value(this->m_bool_default_value);
 
   // reset builder
   this->m_name = "";
@@ -193,7 +193,7 @@ cli_arg *arg_builder::build_bool() {
   this->m_int_default_value = 0;
   this->m_bool_default_value = false;
 
-  return dynamic_cast<cli_arg *>(arg);
+  return std::make_unique<cli_arg>(arg);
 }
 
 } // namespace dal::cli

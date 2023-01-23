@@ -21,13 +21,13 @@ public:
   void inc_end_col();
   void set_end_col(int col);
   void update();
-  int len() const;
-  int start_pos() const;
-  int end_pos() const;
-  int start_line() const;
-  int end_line() const;
-  int start_col() const;
-  int end_col() const;
+  [[nodiscard]] int len() const;
+  [[nodiscard]] int start_pos() const;
+  [[nodiscard]] int end_pos() const;
+  [[nodiscard]] int start_line() const;
+  [[nodiscard]] int end_line() const;
+  [[nodiscard]] int start_col() const;
+  [[nodiscard]] int end_col() const;
 private:
   int m_start_pos = 0;
   int m_end_pos = 0;

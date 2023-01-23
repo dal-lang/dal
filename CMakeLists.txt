@@ -5,25 +5,13 @@ set(DAL_CMAKE_DIR
         CACHE PATH "Path to DAL CMake scripts")
 list(APPEND CMAKE_MODULE_PATH "${DAL_CMAKE_DIR}")
 
-# Set the build type if non was specified.
-if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-    if (EXISTS "${CMAKE_SOURCE_DIR}/.git")
-        set(DEFAULT_BUILD_TYPE "RelWithDebInfo")
-    else ()
-        set(DEFAULT_BUILD_TYPE "Release")
-    endif ()
-    set(CMAKE_BUILD_TYPE
-            "${DEFAULT_BUILD_TYPE}"
-            CACHE
-            STRING
-            "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel."
-            FORCE)
-    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release"
-            "RelWithDebInfo" "MinSizeRel")
-endif ()
-
 include(FindCompiler)
 set(CMAKE_CXX_STANDARD 17)
+
+# Set default build type to Release
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release")
+endif ()
 
 # Set cmake policies
 include(DalPolicy)
@@ -35,6 +23,9 @@ project(
         dal
         VERSION ${PROJECT_VERSION}
         LANGUAGES C CXX)
+
+# STD library directory
+set(DAL_STD_DIR "${CMAKE_SOURCE_DIR}/std" CACHE PATH "Path to the standard library")
 
 # License
 file(READ ${CMAKE_SOURCE_DIR}/LICENSE LICENSE_TEXT HEX)
@@ -48,11 +39,15 @@ configure_file("${CMAKE_SOURCE_DIR}/cmake/templates/config.h.in"
 
 # Find llvm
 include(FindLLVM)
-find_llvm()
 
 # Export compile-cli_command.json for clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Add subdirectories
 add_subdirectory(src)
-add_subdirectory(tests)
+
+# Add tests, can be disabled with -DDAL_BUILD_TESTS=OFF
+option(DAL_BUILD_TESTS "Build tests" ON)
+if (DAL_BUILD_TESTS)
+    add_subdirectory(tests)
+endif ()

@@ -9,22 +9,23 @@
 #ifndef DAL_CORE_ERROR_HH
 #define DAL_CORE_ERROR_HH
 
-#include "span.hh"
 #include <string>
+#include "span.hh"
 
 namespace dal::core {
 
 class error {
-public:
-  error(const std::string &reason, const span &e_span);
+ public:
+  error(const std::string& reason, const span& e_span, const std::string& path);
 
-  [[noreturn]]
-  void raise(const std::string &src) const;
-private:
+  void raise(const std::string& src, bool need_exit = true) const;
+
+ private:
   std::string m_reason;
+  std::string m_path;
   span m_span;
 };
 
-} // namespace dal::core
+}  // namespace dal::core
 
-#endif //DAL_CORE_ERROR_HH
+#endif  //DAL_CORE_ERROR_HH

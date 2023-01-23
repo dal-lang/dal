@@ -9,22 +9,26 @@
 #ifndef DAL_CORE_PARSER_HH
 #define DAL_CORE_PARSER_HH
 
-#include "token.hh"
 #include "ast.hh"
 #include "error.hh"
+#include "table_entry.hh"
+#include "token.hh"
 
 namespace dal::core {
 
 class parser {
-public:
-  parser(const std::string &source, const std::vector<token> &tokens);
+ public:
+  parser(const std::string& source, const std::vector<token>& tokens,
+         std::shared_ptr<import_table> owner);
   ~parser() = default;
 
   std::unique_ptr<ast> parse();
-private:
+
+ private:
   std::string m_source;
+  std::shared_ptr<import_table> m_owner;
   std::vector<token> m_tokens;
-  std::vector<std::unique_ptr<attr_ast>> m_attrs;
+  std::vector<std::shared_ptr<attr_ast>> m_attrs;
   int m_index = 0;
 
   void parse_attrs();
@@ -35,7 +39,7 @@ private:
   std::unique_ptr<fn_proto_ast> parse_fn_proto(bool is_required);
   std::unique_ptr<block_ast> parse_block(bool is_required);
   std::unique_ptr<ident_ast> parse_ident(bool is_required);
-  std::vector<std::unique_ptr<fn_param_ast>> parse_fn_params(bool *is_variadic);
+  std::vector<std::shared_ptr<fn_param_ast>> parse_fn_params(bool* is_variadic);
   std::unique_ptr<fn_param_ast> parse_fn_param();
   std::unique_ptr<string_ast> parse_string();
   std::unique_ptr<int_ast> parse_int();
@@ -63,21 +67,22 @@ private:
   std::unique_ptr<ast> parse_unary(bool is_required);
   std::unique_ptr<ast> parse_postfix(bool is_required);
   std::unique_ptr<ast> parse_primary(bool is_required);
-  std::vector<std::unique_ptr<ast>> parse_call_args();
+  std::vector<std::shared_ptr<ast>> parse_call_args();
   std::unique_ptr<ast> parse_group(bool is_required);
 
-  [[nodiscard]] std::string tok_value(const token &tok) const;
-  static std::unique_ptr<type_ast> create_prim_type(const span &type_span, const std::string &type_name);
-  static std::unique_ptr<void_ast> create_void_ast(const span &void_span);
-  static std::unique_ptr<no_ret_ast> create_no_ret_ast(const span &no_ret_span);
+  [[nodiscard]] std::string tok_value(const token& tok) const;
+  static std::unique_ptr<type_ast> create_prim_type(
+      const span& type_span, const std::string& type_name);
+  static std::unique_ptr<void_ast> create_void_ast(const span& void_span);
+  static std::unique_ptr<no_ret_ast> create_no_ret_ast(const span& no_ret_span);
 
-  [[noreturn]]
-  void error(const token &tok, const std::string &msg);
-  [[noreturn]]
-  void error(const span &span, const std::string &msg);
-  void expect(const token &tok, token_kind kind);
+  [[noreturn]] void error(const token& tok, const std::string& msg);
+  [[noreturn]] void error(const span& span, const std::string& msg);
+  void expect(const token& tok, token_kind kind);
 };
 
-} // namespace dal::core
+[[noreturn]] static void unreachable();
 
-#endif //DAL_CORE_PARSER_HH
+}  // namespace dal::core
+
+#endif  //DAL_CORE_PARSER_HH

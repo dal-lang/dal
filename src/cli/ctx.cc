@@ -10,7 +10,7 @@
 
 namespace dal::cli {
 
-context::context(const std::map<std::string, cli_arg *> &m_args) {
+context::context(const std::map<std::string, std::shared_ptr<cli_arg>> &m_args) {
   this->m_args = m_args;
 }
 

@@ -58,4 +58,25 @@ std::string read_file(const std::string &path, std::error_code &ec) {
   return content;
 }
 
+void split_path(const std::string &path, std::string &dir, std::string &file, std::error_code &ec) {
+  auto abs = to_abs_path(path, ec);
+  if (ec) {
+    return;
+  }
+
+  if (!std::filesystem::exists(abs)) {
+    ec = std::error_code(ENOENT, std::system_category());
+    return;
+  }
+
+  if (!std::filesystem::is_regular_file(abs)) {
+    ec = std::error_code(EISDIR, std::system_category());
+    return;
+  }
+
+  auto p = std::filesystem::path(abs);
+  dir = p.parent_path();
+  file = p.filename();
+}
+
 } // namespace dal::core::os

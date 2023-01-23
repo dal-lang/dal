@@ -9,6 +9,7 @@
 #ifndef DAL_CLI_ARG_HH
 #define DAL_CLI_ARG_HH
 
+#include <memory>
 #include <string>
 
 namespace dal::cli {
@@ -76,9 +77,9 @@ public:
   arg_builder &set_int_default(int default_value);
   arg_builder &set_bool_default(bool default_value);
 
-  cli_arg *build_string();
-  cli_arg *build_int();
-  cli_arg *build_bool();
+  std::unique_ptr<cli_arg> build_string();
+  std::unique_ptr<cli_arg> build_int();
+  std::unique_ptr<cli_arg> build_bool();
 private:
   std::string m_name;
   std::string m_desc;

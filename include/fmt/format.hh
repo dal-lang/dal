@@ -15,10 +15,10 @@
 namespace fmt {
 
 // Inline std::is_same_v.
-template<typename T, typename U>
+template <typename T, typename U>
 inline constexpr bool is_same_v = std::is_same<T, U>::value;
 
-template<typename T>
+template <typename T>
 std::string _format(T value) {
   // FIXME: This is a temporary solution.
   if constexpr (is_same_v<T, int>) {
@@ -54,24 +54,26 @@ std::string _format(T value) {
       return _format(static_cast<bool>(value));
     } else {
       // if we reach here, it means that the type is not supported.
-      throw std::runtime_error("Type is not supported.");
+      std::cerr << "Unsupported type" << std::endl;
+      exit(1);
     }
   }
 }
 
-template<typename... Args>
+template <typename... Args>
 std::string format(std::string format, Args... args) {
   std::string result;
   auto args_list = {_format(args)...};
 
   auto args_it = args_list.begin();
-  for (auto format_it = format.begin(); format_it!=format.end();
+  for (auto format_it = format.begin(); format_it != format.end();
        ++format_it) {
-    if (*format_it=='{') {
-      if (*(format_it + 1)=='}') {
+    if (*format_it == '{') {
+      if (*(format_it + 1) == '}') {
         // to prevent bad alloc, we need to check if the args is empty.
-        if (args_it==args_list.end()) {
-          throw std::runtime_error("Too many placeholders.");
+        if (args_it == args_list.end()) {
+          std::cerr << "Too many arguments" << std::endl;
+          exit(1);
         }
         result += *args_it;
         ++args_it;
@@ -89,4 +91,4 @@ std::string format(std::string format, Args... args) {
 
 }  // namespace fmt
 
-#endif //DAL_FMT_FORMAT_HH
+#endif  //DAL_FMT_FORMAT_HH

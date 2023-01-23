@@ -6,6 +6,7 @@ extern {
 
 pub fn _start() -> ! {
     let s = "Hello, world!\n"
+    let x: [u8; 2]
     printf(s)
     exit(0)
 }

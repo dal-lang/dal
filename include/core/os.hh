@@ -17,6 +17,7 @@ namespace dal::core::os {
 std::string get_cwd();
 std::string to_abs_path(const std::string &path, std::error_code &ec);
 std::string read_file(const std::string &path, std::error_code &ec);
+void split_path(const std::string &path, std::string &dir, std::string &file, std::error_code &ec);
 
 } // namespace dal::core::os
 

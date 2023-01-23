@@ -16,14 +16,14 @@ namespace dal::cli {
 
 class context {
 public:
-  explicit context(const std::map<std::string, cli_arg *> &m_args);
+  explicit context(const std::map<std::string, std::shared_ptr<cli_arg>> &m_args);
   ~context() = default;
 
   std::string get_string(const std::string &name);
   int get_int(const std::string &name);
   bool get_bool(const std::string &name);
 private:
-  std::map<std::string, cli_arg *> m_args;
+  std::map<std::string, std::shared_ptr<cli_arg>> m_args;
 };
 
 } // namespace dal::cli
