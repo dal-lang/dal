@@ -12,18 +12,11 @@
 
 namespace dal::core {
 
-error::error(const std::string& reason, const span& e_span,
-             const std::string& path) {
-  this->m_reason = reason;
-  this->m_path = path;
-  this->m_span = e_span;
-}
-
-static std::vector<int> get_line_offsets(const std::string& src) {
-  std::vector<int> offsets;
+static std::vector<unsigned long> get_line_offsets(const std::string& src) {
+  std::vector<unsigned long> offsets;
 
   offsets.push_back(0);
-  for (auto i = 0; i < src.size(); i++) {
+  for (unsigned long i = 0; i < src.size(); i++) {
     if (src[i] == '\n') {
       offsets.push_back(i + 1);
     }
@@ -32,27 +25,29 @@ static std::vector<int> get_line_offsets(const std::string& src) {
   return offsets;
 }
 
-void error::raise(const std::string& src, bool need_exit) const {
-  auto start_line = this->m_span.start_line();
+error::error(const std::string& reason, const span& e_span,
+             const std::string& path, const std::string& src) {
+  auto start_line = e_span.start_line();
   auto offsets = get_line_offsets(src);
-  auto line = src.substr(offsets[start_line],
-                         offsets[start_line + 1] - offsets[start_line]);
+  auto line = src.substr(offsets[start_line - 1], offsets[start_line]);
   if (line.back() == '\n') {
     line.pop_back();
   }
 
-  auto num_str = std::to_string(start_line + 1);
-  fmt::eprintln("{}: {}", fmt::red_bold("error"),
-                fmt::yellow_bold(this->m_reason));
-  fmt::eprintln(
-      "{}", fmt::yellow(fmt::format("  --> {}:{}:{}", this->m_path,
-                                    start_line + 1, this->m_span.start_col())));
-  fmt::eprintln("{}|", std::string(num_str.size() + 2, ' '));
-  fmt::eprintln(" {} | {}", start_line + 1, fmt::red_bold(line));
-  fmt::eprintln("{}{}",
-                std::string(this->m_span.start_col() + num_str.size() + 3, ' '),
-                fmt::red_bold("^"));
+  auto num_str = std::to_string(start_line);
+  this->m_err +=
+      fmt::format("{}: {}\n", fmt::red_bold("error"), fmt::yellow_bold(reason));
+  this->m_err += fmt::yellow(
+      fmt::format("  --> {}:{}:{}\n", path, start_line, e_span.start_col()));
+  this->m_err += fmt::format("{}|\n", std::string(num_str.size() + 2, ' '));
+  this->m_err += fmt::format(" {} | {}\n", start_line, fmt::red_bold(line));
+  this->m_err += fmt::format(
+      "{}{}\n", std::string(e_span.start_col() + num_str.size() + 3, ' '),
+      fmt::red_bold("^"));
+}
 
+void error::raise(bool need_exit) const {
+  fmt::eprintln("{}", this->m_err);
   if (need_exit) {
     exit(1);
   }

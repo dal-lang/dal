@@ -248,14 +248,14 @@ token tokenizer::next_token() {
       } else {
         t_kind = token_kind::error;
         this->m_errors.emplace_back("unterminated string literal",
-                                    this->t_span(), this->m_path);
+                                    this->t_span(), this->m_path, this->m_str);
       }
       break;
     }
     default:
       t_kind = token_kind::error;
       this->m_errors.emplace_back("invalid character", this->t_span(),
-                                  this->m_path);
+                                  this->m_path, this->m_str);
       break;
   }
 
@@ -323,7 +323,7 @@ bool tokenizer::has_error() const {
 
 void tokenizer::print_error() {
   for (auto& e : this->m_errors) {
-    e.raise(this->m_str, false);
+    e.raise(false);
   }
   exit(1);
 }

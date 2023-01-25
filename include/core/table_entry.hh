@@ -14,6 +14,8 @@
 
 namespace dal::core {
 
+class fn_table;
+
 enum class type_table_kind {
   type_invalid,
   type_void,
@@ -65,14 +67,44 @@ class import_table {
   void set_source(const std::string& source);
   void set_path(const std::string& path);
   void set_root(std::shared_ptr<ast> root);
+  void add_fn_table(const std::string& name, std::shared_ptr<fn_table> table);
 
   [[nodiscard]] std::string get_path() const;
+  [[nodiscard]] std::string get_source() const;
   std::shared_ptr<ast> get_root();
 
  private:
   std::string m_source;
   std::string m_path;
   std::shared_ptr<ast> m_root;
+  std::unordered_map<std::string, std::shared_ptr<fn_table>> m_fn_table;
+};
+
+enum class fn_attr_kind {
+  none,
+  inline_,
+  always_inline,
+};
+
+class fn_table {
+ public:
+  fn_table() = default;
+  ~fn_table() = default;
+
+  void set_proto(std::shared_ptr<fn_proto_ast> proto);
+  void set_def(std::shared_ptr<fn_def_ast> def);
+  void set_import(const std::shared_ptr<import_table>& import);
+  void add_attr(fn_attr_kind attr);
+  void set_calling_conv(llvm::CallingConv::ID calling_conv);
+  void set_is_extern(bool is_extern);
+
+ private:
+  std::shared_ptr<fn_proto_ast> m_proto;
+  std::shared_ptr<fn_def_ast> m_def;
+  std::weak_ptr<import_table> m_import;
+  std::vector<fn_attr_kind> m_attrs;
+  llvm::CallingConv::ID m_calling_conv = llvm::CallingConv::C;
+  bool m_is_extern = false;
 };
 
 }  // namespace dal::core

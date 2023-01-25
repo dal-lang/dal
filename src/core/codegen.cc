@@ -7,6 +7,7 @@
  */
 
 #include <config.h>
+#include <core/analyze.hh>
 #include <core/codegen.hh>
 #include <core/os.hh>
 #include <core/parser.hh>
@@ -46,6 +47,21 @@ int codegen::gen(const std::string& path) {
   this->init(path);
 
   this->m_root_import = this->add_code(path);
+
+  if (this->m_verbose) {
+    fmt::println("\n~~~~~~semantic analysis~~~~~~\n");
+  }
+
+  analyze semantics(this);
+  semantics.start();
+
+  if (!this->m_errors.empty()) {
+    for (const auto& e : this->m_errors) {
+      e.raise();
+    }
+    exit(1);
+  }
+
   return 0;
 }
 
@@ -55,7 +71,7 @@ void codegen::init(const std::string& path) {
 
   initialize_llvm();
   std::string triple = get_host_triple();
-  this->m_module = std::move(new_module(path));
+  this->m_module = new_module(path);
   this->m_module->setTargetTriple(triple);
   std::string error;
   auto target = llvm::TargetRegistry::lookupTarget(triple, error);
@@ -70,12 +86,12 @@ void codegen::init(const std::string& path) {
                                           : llvm::CodeGenOpt::Aggressive;
   llvm::Reloc::Model reloc_model =
       (this->m_link_static) ? llvm::Reloc::Static : llvm::Reloc::PIC_;
-  this->m_target_machine = std::move(create_target_machine(
-      *target, triple, cpu, features, reloc_model, opt_level));
+  this->m_target_machine = create_target_machine(*target, triple, cpu, features,
+                                                 reloc_model, opt_level);
   auto data_layout = this->m_target_machine->createDataLayout();
   this->m_module->setDataLayout(data_layout);
   this->m_ptr_size = data_layout.getPointerSize();
-  this->m_builder = std::move(new_ir_builder(this->m_module->getContext()));
+  this->m_builder = new_ir_builder(this->m_module->getContext());
 
   this->set_primitive_types();
 }
@@ -188,7 +204,7 @@ std::shared_ptr<import_table> codegen::add_code(const std::string& path) {
   if (this->m_verbose) {
     fmt::println("\n[+] adding code: {}", path);
     fmt::println("----------------------------------------");
-    fmt::println("\n~~~~~~tokens:\n");
+    fmt::println("\n~~~~~~tokens~~~~~~\n");
   }
 
   std::error_code ec;
@@ -207,7 +223,7 @@ std::shared_ptr<import_table> codegen::add_code(const std::string& path) {
     for (auto& m_token : tokens) {
       fmt::println("  {}", m_token.t_str(file_contents));
     }
-    fmt::println("\n~~~~~~ast:\n");
+    fmt::println("\n~~~~~~ast~~~~~~\n");
   }
 
   auto import_entry = std::make_shared<import_table>();
@@ -215,8 +231,7 @@ std::shared_ptr<import_table> codegen::add_code(const std::string& path) {
   import_entry->set_source(file_contents);
   parser p(file_contents, tokens, import_entry);
   auto root = p.parse();
-  root->set_owner(import_entry);
-  import_entry->set_root(std::move(root));
+  import_entry->set_root(std::shared_ptr<ast>(root));
   if (this->m_verbose) {
     auto str = import_entry->get_root()->to_string(0);
     fmt::println("{}", str);
@@ -227,6 +242,12 @@ std::shared_ptr<import_table> codegen::add_code(const std::string& path) {
   // TODO: perform import resolution
 
   return import_entry;
+}
+
+void codegen::add_error(const std::string& reason, ast* node) {
+  error e(reason, node->m_span, node->m_owner.lock()->get_path(),
+          node->m_owner.lock()->get_source());
+  this->m_errors.push_back(e);
 }
 
 }  // namespace dal::core

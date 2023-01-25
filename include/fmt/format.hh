@@ -9,6 +9,7 @@
 #ifndef DAL_FMT_FORMAT_HH
 #define DAL_FMT_FORMAT_HH
 
+#include <iostream>
 #include <stdexcept>
 #include <string>
 

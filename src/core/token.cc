@@ -79,6 +79,7 @@ std::string token::t_kind_str() const {
   case token_kind::error: return "error";
   case token_kind::kw_void: return "kw_void";
   }
+  std::abort();
 }
 
 std::string token::t_str(const std::string &src) const {

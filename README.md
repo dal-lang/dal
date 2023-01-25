@@ -1,31 +1,66 @@
-![DAL](https://avatars.githubusercontent.com/u/117913616?s=400&u=b56d1407d15a00a4ae8e30f9515263271320e3a7&v=4)
+<p align="center">
+    <img src="./assets/dal.svg" alt="Dal Logo" width="200" />
+</p>
 
-Dal is a general-purpose programming language designed to be simple yet powerful.
+Dal is a general-purpose programming language designed to be simple yet powerful. It is a statically typed language with
+a focus on performance and simplicity. It is designed to be easy to learn and use.
 
-## Building
-### Status
+> __Warning__ \
+> This project is still in early development and is not ready for production use.
+
 ![build](https://github.com/dal-lang/dal/actions/workflows/cmake.yml/badge.svg)
 [![CircleCI](https://circleci.com/gh/dal-lang/dal.svg?style=svg)](https://circleci.com/gh/dal-lang/dal)
 
-### Dependencies and Tools
-- clang 15.0.5
-- LLVM 15.0.5
+## Beautiful Syntax
 
-### Debug / Development build
-```
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Debug
-make
+Dal syntax is rust-like and easy to read.
+
+```rust
+import "std/io"
+
+pub fn main() {
+    io.println("Hello, World!")
+}
 ```
 
-### Goals
-- Do not depend on libc unless explicitly linked.
-- Optional standard library and will statically linked if used.
-- Generics so that one can write efficient data structures that work for any data type.
-- Ability to run arbitrary code at compile time and generate code.
-- Provide build system and package manager.
-- Easy integration with `C` library.
+## Generics
+
+Generics allow you to write code that works for any data type.
+
+```rust
+fn sum[T](a: T, b: T) -> T {
+return a + b
+}
+
+pub fn main() {
+    io.println(sum(1, 2))
+    io.println(sum(1.0, 2.0))
+}
+```
+
+## Link to C
+
+Dal can link to C library and use it in your code.
+
+```rust
+@link("c")
+extern {
+    pub fn printf(__fmt: *const *const u8, ...) -> i32
+}
+
+pub fn main() {
+    printf("Hello, World!\n")
+}
+```
+
+Read more about Dal in the [documentation](./markdown/doc.md).
+
+## Contributing
+
+Dal is an open source project and contributions are welcome. If you want to contribute, please read
+the [contributing guide](./markdown/contributing.md).
 
 ## License
-Dal is available under MIT license, and comes with a humble request: use it to make software better serve the needs of end-users.
+
+Dal priority is to serve and help the community to build amazing things. That's why Dal using the
+most liberal license possible, the [MIT license](./LICENSE).

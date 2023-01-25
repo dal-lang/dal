@@ -12,7 +12,7 @@
 namespace dal::core {
 
 class span {
-public:
+ public:
   span() = default;
   ~span() = default;
 
@@ -28,15 +28,16 @@ public:
   [[nodiscard]] int end_line() const;
   [[nodiscard]] int start_col() const;
   [[nodiscard]] int end_col() const;
-private:
+
+ private:
   int m_start_pos = 0;
   int m_end_pos = 0;
-  int m_start_line = 0;
-  int m_end_line = 0;
-  int m_start_col = 0;
-  int m_end_col = 0;
+  int m_start_line = 1;
+  int m_end_line = 1;
+  int m_start_col = 1;
+  int m_end_col = 1;
 };
 
-} // namespace dal::core
+}  // namespace dal::core
 
-#endif //DAL_CORE_SPAN_HH
+#endif  //DAL_CORE_SPAN_HH

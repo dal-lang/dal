@@ -12,6 +12,7 @@
 #include <fmt/core.hh>
 #include <string>
 #include <vector>
+#include "error.hh"
 #include "llvm.hh"
 #include "table_entry.hh"
 
@@ -48,6 +49,9 @@ class codegen {
   codegen() = default;
   ~codegen() = default;
 
+  friend class analyze;
+  friend class analyze_fn_decl_visitor;
+
   void set_root_dir(const std::string& root_dir);
   void set_build_type(build_type type);
   void strip_debug_symbols();
@@ -78,11 +82,16 @@ class codegen {
       m_type_table = {};
   std::unordered_map<std::string, std::shared_ptr<import_table>>
       m_import_table = {};
+  std::unordered_map<std::string, bool> m_link_table;
   std::shared_ptr<import_table> m_root_import;
+  std::vector<std::shared_ptr<fn_table>> m_proto_table;
+  std::vector<error> m_errors;
 
   void init(const std::string& path);
   void set_primitive_types();
   std::shared_ptr<import_table> add_code(const std::string& path);
+
+  void add_error(const std::string& reason, ast* node);
 };
 
 }  // namespace dal::core

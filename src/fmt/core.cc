@@ -1,21 +1,21 @@
 /*
- * Copyright (c) 2023 Ade M Ramdani
- *
- * This file is part of dal, which is MIT licensed.
- * See the file "LICENSE" for more information or visit
- * https://opensource.org/licenses/MIT for full license details.
- */
+* Copyright (c) 2023 Ade M Ramdani
+*
+* This file is part of dal, which is MIT licensed.
+* See the file "LICENSE" for more information or visit
+* https://opensource.org/licenses/MIT for full license details.
+*/
 
 #include <fmt/core.hh>
 
 namespace fmt {
 
 void println(const std::string& text) {
-  println("{}", text);
+  std::cout << text << std::endl;
 }
 
-void eprintln(const std::string& text) {
-  eprintln("{}", text);
+static bool is_tty() {
+  return isatty(fileno(stdout)) || isatty(fileno(stderr));
 }
 
 std::string red(const std::string& text) {

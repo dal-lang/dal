@@ -1,4 +1,6 @@
 # GTest
+# set policy CMP0135
+#cmake_policy(SET CMP0135 NEW)
 include(FetchContent)
 FetchContent_Declare(
         googletest
@@ -13,8 +15,9 @@ include(GoogleTest)
 
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include)
 
-set(test_src test_fmt.cc test_tokenizer.cc test_parser.cc)
+set(test_src test_tokenizer.cc test_parser.cc ${DAL_SRC})
 
 add_executable(dal_test ${test_src})
-target_link_libraries(dal_test gtest gtest_main core)
+set_target_properties(dal_test PROPERTIES CXX_STANDARD 17)
+target_link_libraries(dal_test gtest gtest_main ${LLVM_LIBRARIES})
 gtest_discover_tests(dal_test)

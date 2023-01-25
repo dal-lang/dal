@@ -10,7 +10,6 @@
 #define DAL_FMT_CORE_HH
 
 #include <unistd.h>
-#include <iostream>
 #include "format.hh"
 
 namespace fmt {
@@ -47,10 +46,6 @@ template <typename... T>
 [[noreturn]] void panic(const std::string& fmt, T... args) {
   eprintln(fmt, args...);
   std::exit(1);
-}
-
-static bool is_tty() {
-  return isatty(fileno(stdout)) || isatty(fileno(stderr));
 }
 
 std::string red(const std::string& text);

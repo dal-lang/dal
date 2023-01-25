@@ -66,12 +66,46 @@ void import_table::set_path(const std::string& path) {
 void import_table::set_root(std::shared_ptr<ast> root) {
   this->m_root = std::move(root);
 }
+
+void import_table::add_fn_table(const std::string& name,
+                                std::shared_ptr<fn_table> table) {
+  this->m_fn_table[name] = std::move(table);
+}
+
 std::string import_table::get_path() const {
   return this->m_path;
 }
 
+std::string import_table::get_source() const {
+  return this->m_source;
+}
+
 std::shared_ptr<ast> import_table::get_root() {
   return this->m_root;
+}
+
+void fn_table::set_proto(std::shared_ptr<fn_proto_ast> proto) {
+  this->m_proto = std::move(proto);
+}
+
+void fn_table::set_def(std::shared_ptr<fn_def_ast> def) {
+  this->m_def = std::move(def);
+}
+
+void fn_table::set_import(const std::shared_ptr<import_table>& import) {
+  this->m_import = import;
+}
+
+void fn_table::add_attr(fn_attr_kind attr) {
+  this->m_attrs.push_back(attr);
+}
+
+void fn_table::set_calling_conv(llvm::CallingConv::ID calling_conv) {
+  this->m_calling_conv = calling_conv;
+}
+
+void fn_table::set_is_extern(bool is_extern) {
+  this->m_is_extern = is_extern;
 }
 
 }  // namespace dal::core

@@ -1,0 +1,40 @@
+@link("c")
+extern {
+    pub fn printf(__fmt: *const *const u8, ...) -> i32
+    pub fn exit(__status: i32) -> !
+}
+
+fn add(a: i32, b: i32) -> i32 {
+    return a + b
+}
+
+fn sub(a: i32, b: i32) -> i32 {
+    return a - b
+}
+
+fn mul(a: i32, b: i32) -> i32 {
+    return a * b
+}
+
+fn div(a: i32, b: i32) -> i32 {
+    return a / b
+}
+
+pub fn _start() -> ! {
+    let a = 10
+    let b = 5
+    let c = add(a, b)
+    let d = sub(a, b)
+    let e = mul(a, b)
+    let f = div(a, b)
+
+    printf("a + b = %d\n\0", c)
+    printf("a - b = %d\n\0", d)
+    printf("a * b = %d\n\0", e)
+    printf("a / b = %d\n\0", f)
+
+    let x = a * b - a / b
+    printf("x = %d\n\0", x)
+
+    exit(0)
+}

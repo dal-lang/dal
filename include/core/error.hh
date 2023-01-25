@@ -16,14 +16,13 @@ namespace dal::core {
 
 class error {
  public:
-  error(const std::string& reason, const span& e_span, const std::string& path);
+  error(const std::string& reason, const span& e_span, const std::string& path,
+        const std::string& src);
 
-  void raise(const std::string& src, bool need_exit = true) const;
+  void raise(bool need_exit = true) const;
 
  private:
-  std::string m_reason;
-  std::string m_path;
-  span m_span;
+  std::string m_err;
 };
 
 }  // namespace dal::core

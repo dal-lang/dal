@@ -52,7 +52,7 @@ static bool has_prefix(const std::string& str, const std::string& prefix) {
 int cli_command::parse(std::vector<std::string> args) {
   auto err_label = fmt::red_bold("error");
   std::map<std::string, bool> supplied;
-  for (int i = 0; i < args.size(); i++) {
+  for (unsigned long i = 0; i < args.size(); i++) {
     auto arg = args[i];
     if (has_prefix(arg, "--"))
       arg = arg.substr(2);
