@@ -23,20 +23,12 @@
 
 namespace dal::core {
 
-void initialize_llvm();
-
-std::string get_host_triple();
-
-std::unique_ptr<llvm::Module> new_module(const std::string& name);
-
-std::string get_host_cpu_features();
-
-std::unique_ptr<llvm::TargetMachine> create_target_machine(
+void llvm_init();
+std::string llvm_get_host_cpu_features();
+llvm::TargetMachine* llvm_create_target_machine(
     const llvm::Target& target, const std::string& triple,
     const std::string& cpu, const std::string& features,
     llvm::Reloc::Model reloc_model, llvm::CodeGenOpt::Level opt_level);
-
-std::unique_ptr<llvm::IRBuilder<>> new_ir_builder(llvm::LLVMContext& ctx);
 
 }  // namespace dal::core
 

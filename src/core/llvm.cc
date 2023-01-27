@@ -10,7 +10,7 @@
 
 namespace dal::core {
 
-void initialize_llvm() {
+void llvm_init() {
   LLVMInitializeAllTargets();
   LLVMInitializeAllTargetMCs();
   LLVMInitializeAllAsmParsers();
@@ -18,18 +18,7 @@ void initialize_llvm() {
   LLVMInitializeNativeTarget();
 }
 
-std::string get_host_triple() {
-  std::string triple = llvm::sys::getDefaultTargetTriple();
-  return triple;
-}
-
-std::unique_ptr<llvm::Module> new_module(const std::string& name) {
-  auto ctx_ref = LLVMGetGlobalContext();
-  auto& ctx = *reinterpret_cast<llvm::LLVMContext*>(ctx_ref);
-  return std::make_unique<llvm::Module>(name, ctx);
-}
-
-std::string get_host_cpu_features() {
+std::string llvm_get_host_cpu_features() {
   llvm::SubtargetFeatures features;
   llvm::StringMap<bool> host_features;
   if (llvm::sys::getHostCPUFeatures(host_features)) {
@@ -40,18 +29,14 @@ std::string get_host_cpu_features() {
   return features.getString();
 }
 
-std::unique_ptr<llvm::TargetMachine> create_target_machine(
+llvm::TargetMachine* llvm_create_target_machine(
     const llvm::Target& target, const std::string& triple,
     const std::string& cpu, const std::string& features,
     llvm::Reloc::Model reloc_model, llvm::CodeGenOpt::Level opt_level) {
   llvm::TargetOptions options;
   auto m = target.createTargetMachine(triple, cpu, features, options,
                                       reloc_model, llvm::None, opt_level);
-  return std::unique_ptr<llvm::TargetMachine>(m);
-}
-
-std::unique_ptr<llvm::IRBuilder<>> new_ir_builder(llvm::LLVMContext& ctx) {
-  return std::make_unique<llvm::IRBuilder<>>(ctx);
+  return m;
 }
 
 }  // namespace dal::core

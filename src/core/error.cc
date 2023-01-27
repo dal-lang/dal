@@ -12,12 +12,12 @@
 
 namespace dal::core {
 
-static std::vector<unsigned long> get_line_offsets(const std::string& src) {
+static std::vector<unsigned long> get_line_offsets(const std::string &src) {
   std::vector<unsigned long> offsets;
 
   offsets.push_back(0);
   for (unsigned long i = 0; i < src.size(); i++) {
-    if (src[i] == '\n') {
+    if (src[i]=='\n') {
       offsets.push_back(i + 1);
     }
   }
@@ -25,12 +25,13 @@ static std::vector<unsigned long> get_line_offsets(const std::string& src) {
   return offsets;
 }
 
-error::error(const std::string& reason, const span& e_span,
-             const std::string& path, const std::string& src) {
+error::error(const std::string &reason, const span &e_span,
+             const std::string &path, const std::string &src) {
   auto start_line = e_span.start_line();
   auto offsets = get_line_offsets(src);
-  auto line = src.substr(offsets[start_line - 1], offsets[start_line]);
-  if (line.back() == '\n') {
+  auto line = src.substr(offsets[start_line - 1], offsets[start_line] -
+      offsets[start_line - 1]);
+  if (line.back()=='\n') {
     line.pop_back();
   }
 

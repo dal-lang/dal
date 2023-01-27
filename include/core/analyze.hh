@@ -10,38 +10,24 @@
 #define DAL_CORE_ANALYZE_HH
 
 #include "codegen.hh"
-#include "visitor.hh"
 
 namespace dal::core {
 
 class analyze {
  public:
-  explicit analyze(codegen* codegen) : m_codegen(codegen) {}
+  explicit analyze(codegen *g) : m_g(g) {}
   ~analyze() = default;
 
-  friend class analyze_fn_decl_visitor;
-
   void start();
-
  private:
-  codegen* m_codegen;
+  codegen *m_g;
 
-  void analyze_fn_proto(std::shared_ptr<fn_proto_ast> node, fn_table* entry);
-};
-
-class analyze_fn_decl_visitor : public ast_visitor::visitor {
- public:
-  explicit analyze_fn_decl_visitor(analyze* analyze,
-                                   std::shared_ptr<import_table> import_entry)
-      : m_analyze(analyze), m_import_entry(std::move(import_entry)) {}
-  ~analyze_fn_decl_visitor() override = default;
-
-  void visit(extern_ast* node) override;
-  void visit(fn_def_ast* node) override;
-
- private:
-  analyze* m_analyze;
-  std::shared_ptr<import_table> m_import_entry;
+  // private methods.
+  void analyze_fn_decl(const std::shared_ptr<ast> &node, const std::shared_ptr<import_table> &table);
+  void analyze_top_level(const std::shared_ptr<ast> &node, const std::shared_ptr<import_table> &table);
+  void resolve_fn_proto(const std::shared_ptr<fn_proto_ast> &node, const std::shared_ptr<fn_table> &table);
+  std::shared_ptr<type_table> resolve_type(const std::shared_ptr<type_ast> &node);
+  std::shared_ptr<type_table> get_array_type(const std::shared_ptr<type_table> &table, int size);
 };
 
 }  // namespace dal::core

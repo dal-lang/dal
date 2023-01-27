@@ -28,6 +28,7 @@ enum class token_kind {
   kw_false,
   kw_extern,
   kw_import,
+  kw_module,
   kw_as,
   kw_void,
 
@@ -83,7 +84,7 @@ enum class token_kind {
 };
 
 class token {
-public:
+ public:
   token() = default;
   token(token_kind t_kind, span t_span);
   ~token() = default;
@@ -91,12 +92,13 @@ public:
   [[nodiscard]] token_kind t_kind() const;
   [[nodiscard]] span t_span() const;
   [[nodiscard]] std::string t_kind_str() const;
-  [[nodiscard]] std::string t_str(const std::string &src) const;
-private:
+  [[nodiscard]] std::string t_str(const std::string& src) const;
+
+ private:
   token_kind m_kind = token_kind::eof;
   span m_span;
 };
 
-} // namespace dal::core
+}  // namespace dal::core
 
-#endif //DAL_CORE_TOKEN_HH
+#endif  //DAL_CORE_TOKEN_HH

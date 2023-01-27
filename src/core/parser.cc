@@ -11,19 +11,26 @@
 
 namespace dal::core {
 
-parser::parser(const std::string& source, const std::vector<token>& tokens,
+parser::parser(const std::string &source, const std::vector<token> &tokens,
                std::shared_ptr<import_table> owner) {
   this->m_source = source;
   this->m_owner = std::move(owner);
   this->m_tokens = tokens;
 }
 
-ast* parser::parse() {
+ast *parser::parse() {
   auto root = new root_ast();
   root->m_owner = this->m_owner;
 
+  auto expect_module = &this->m_tokens[this->m_index];
+  this->m_index++;
+  this->expect(*expect_module, token_kind::kw_module);
+
+  auto module_name = this->parse_ident(true);
+  root->m_module_name = std::shared_ptr<ident_ast>(module_name);
+
   for (;;) {
-    token* tok = &this->m_tokens[this->m_index];
+    token *tok = &this->m_tokens[this->m_index];
     this->parse_attrs();
 
     auto fn_def = this->parse_fn_def(false);
@@ -60,8 +67,8 @@ ast* parser::parse() {
   return root;
 }
 
-type_ast* parser::create_prim_type(const span& type_span,
-                                   const std::string& type_name) {
+type_ast *parser::create_prim_type(const span &type_span,
+                                   const std::string &type_name) {
   auto type = new type_ast();
   type->m_span = type_span;
   auto ident = new ident_ast();
@@ -71,9 +78,9 @@ type_ast* parser::create_prim_type(const span& type_span,
   return type;
 }
 
-ident_ast* parser::parse_ident(bool is_required) {
-  token* tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::ident) {
+ident_ast *parser::parse_ident(bool is_required) {
+  token *tok = &this->m_tokens[this->m_index];
+  if (tok->t_kind()!=token_kind::ident) {
     if (is_required) {
       this->error(*tok, "Expected identifier");
     } else {
@@ -89,9 +96,9 @@ ident_ast* parser::parse_ident(bool is_required) {
   return ident;
 }
 
-import_ast* parser::parse_import(bool is_required) {
-  token* tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::kw_import) {
+import_ast *parser::parse_import(bool is_required) {
+  token *tok = &this->m_tokens[this->m_index];
+  if (tok->t_kind()!=token_kind::kw_import) {
     if (is_required) {
       this->error(*tok, "Expected import");
     } else {
@@ -108,7 +115,7 @@ import_ast* parser::parse_import(bool is_required) {
   return import;
 }
 
-string_ast* parser::parse_string() {
+string_ast *parser::parse_string() {
   auto tok = &this->m_tokens[this->m_index];
   this->expect(*tok, token_kind::lit_string);
   this->m_index++;
@@ -125,26 +132,20 @@ string_ast* parser::parse_string() {
     } else {
       if (escape) {
         switch (c) {
-          case '\\':
-            value += '\\';
+          case '\\':value += '\\';
             break;
-          case 'r':
-            value += '\r';
+          case 'r':value += '\r';
             break;
-          case 'n':
-            value += '\n';
+          case 'n':value += '\n';
             break;
-          case 't':
-            value += '\t';
+          case 't':value += '\t';
             break;
-          case '"':
-            value += '"';
+          case '"':value += '"';
             break;
-          default:
-            break;
+          default:break;
         }
         escape = false;
-      } else if (c == '\\') {
+      } else if (c=='\\') {
         escape = true;
       } else {
         value += c;
@@ -159,7 +160,7 @@ string_ast* parser::parse_string() {
   return str;
 }
 
-int_ast* parser::parse_int() {
+int_ast *parser::parse_int() {
   auto tok = &this->m_tokens[this->m_index];
   this->expect(*tok, token_kind::lit_int);
   this->m_index++;
@@ -171,44 +172,44 @@ int_ast* parser::parse_int() {
   return int_node;
 }
 
-bool_ast* parser::parse_bool() {
+bool_ast *parser::parse_bool() {
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::kw_true &&
-      tok->t_kind() != token_kind::kw_false) {
+  if (tok->t_kind()!=token_kind::kw_true &&
+      tok->t_kind()!=token_kind::kw_false) {
     this->error(*tok, "Expected boolean");
   }
   this->m_index++;
 
   auto bool_node = new bool_ast();
   bool_node->m_span = tok->t_span();
-  bool_node->m_value = tok->t_kind() == token_kind::kw_true;
+  bool_node->m_value = tok->t_kind()==token_kind::kw_true;
   bool_node->m_owner = this->m_owner;
   return bool_node;
 }
 
-type_ast* parser::parse_type() {
+type_ast *parser::parse_type() {
   auto tok = &this->m_tokens[this->m_index];
   this->m_index++;
 
-  type_ast* type = nullptr;
+  type_ast *type = nullptr;
 
-  if (tok->t_kind() == token_kind::op_log_not) {
+  if (tok->t_kind()==token_kind::op_log_not) {
     // no return type: !
     type = this->create_prim_type(tok->t_span(), "!");
-  } else if (tok->t_kind() == token_kind::kw_void) {
+  } else if (tok->t_kind()==token_kind::kw_void) {
     // void type: void
     type = this->create_prim_type(tok->t_span(), "void");
-  } else if (tok->t_kind() == token_kind::ident) {
+  } else if (tok->t_kind()==token_kind::ident) {
     // user defined or primitive type: u8, u16, etc.
     type = this->create_prim_type(tok->t_span(), this->tok_value(*tok));
-  } else if (tok->t_kind() == token_kind::op_mul) {
+  } else if (tok->t_kind()==token_kind::op_mul) {
     // pointer type: *const u8, *mut u8, etc.
     auto const_or_mut = &this->m_tokens[this->m_index];
     this->m_index++;
     bool is_mut = false;
-    if (const_or_mut->t_kind() == token_kind::kw_mut) {
+    if (const_or_mut->t_kind()==token_kind::kw_mut) {
       is_mut = true;
-    } else if (const_or_mut->t_kind() == token_kind::kw_const) {
+    } else if (const_or_mut->t_kind()==token_kind::kw_const) {
       is_mut = false;
     } else {
       this->error(*const_or_mut, "Expected const or mut");
@@ -220,7 +221,7 @@ type_ast* parser::parse_type() {
     type->m_type_kind = type_kind::pointer;
     type->m_is_mut = is_mut;
     type->m_child = std::shared_ptr<type_ast>(inner_type);
-  } else if (tok->t_kind() == token_kind::punct_lbracket) {
+  } else if (tok->t_kind()==token_kind::punct_lbracket) {
     // array type: [u8; 10].
     auto inner_type = this->parse_type();
 
@@ -247,9 +248,9 @@ type_ast* parser::parse_type() {
   return type;
 }
 
-extern_ast* parser::parse_extern(bool is_required) {
+extern_ast *parser::parse_extern(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::kw_extern) {
+  if (tok->t_kind()!=token_kind::kw_extern) {
     if (is_required) {
       this->error(*tok, "Expected extern");
     } else {
@@ -273,7 +274,7 @@ extern_ast* parser::parse_extern(bool is_required) {
     this->parse_attrs();
 
     auto maybe_rbrace = &this->m_tokens[this->m_index];
-    if (maybe_rbrace->t_kind() == token_kind::punct_rbrace) {
+    if (maybe_rbrace->t_kind()==token_kind::punct_rbrace) {
       if (!this->m_attrs.empty()) {
         this->error(*maybe_attr, "Unexpected attribute");
       }
@@ -287,23 +288,23 @@ extern_ast* parser::parse_extern(bool is_required) {
   }
 }
 
-void_ast* parser::create_void_ast(const span& void_span) {
+void_ast *parser::create_void_ast(const span &void_span) {
   auto void_node = new void_ast();
   void_node->m_span = void_span;
   void_node->m_owner = this->m_owner;
   return void_node;
 }
 
-no_ret_ast* parser::create_no_ret_ast(const span& no_ret_span) {
+no_ret_ast *parser::create_no_ret_ast(const span &no_ret_span) {
   auto no_ret_node = new no_ret_ast();
   no_ret_node->m_span = no_ret_span;
   no_ret_node->m_owner = this->m_owner;
   return no_ret_node;
 }
 
-var_decl_ast* parser::parse_var_decl(bool is_required) {
+var_decl_ast *parser::parse_var_decl(bool is_required) {
   auto let = &this->m_tokens[this->m_index];
-  if (let->t_kind() != token_kind::kw_let) {
+  if (let->t_kind()!=token_kind::kw_let) {
     if (is_required) {
       this->error(*let, "Expected var");
     } else {
@@ -317,12 +318,12 @@ var_decl_ast* parser::parse_var_decl(bool is_required) {
   var_decl->m_owner = this->m_owner;
 
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() == token_kind::kw_mut) {
+  if (tok->t_kind()==token_kind::kw_mut) {
     var_decl->m_is_mut = true;
     this->m_index++;
     auto name = this->parse_ident(true);
     var_decl->m_name = std::shared_ptr<ident_ast>(name);
-  } else if (tok->t_kind() == token_kind::ident) {
+  } else if (tok->t_kind()==token_kind::ident) {
     var_decl->m_is_mut = false;
     auto name = this->parse_ident(true);
     var_decl->m_name = std::shared_ptr<ident_ast>(name);
@@ -331,12 +332,12 @@ var_decl_ast* parser::parse_var_decl(bool is_required) {
   }
 
   auto maybe_colon = &this->m_tokens[this->m_index];
-  if (maybe_colon->t_kind() == token_kind::op_assign) {
+  if (maybe_colon->t_kind()==token_kind::op_assign) {
     this->m_index++;
     auto expr = this->parse_expr(true);
     var_decl->m_value = std::shared_ptr<ast>(expr);
     return var_decl;
-  } else if (maybe_colon->t_kind() == token_kind::punct_colon) {
+  } else if (maybe_colon->t_kind()==token_kind::punct_colon) {
     this->m_index++;
     auto type = this->parse_type();
     var_decl->m_type = std::shared_ptr<type_ast>(type);
@@ -346,10 +347,10 @@ var_decl_ast* parser::parse_var_decl(bool is_required) {
   }
 }
 
-block_ast* parser::parse_block(bool is_required) {
+block_ast *parser::parse_block(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
 
-  if (tok->t_kind() != token_kind::punct_lbrace) {
+  if (tok->t_kind()!=token_kind::punct_lbrace) {
     if (is_required) {
       this->error(*tok, "Expected '{'");
     }
@@ -362,7 +363,7 @@ block_ast* parser::parse_block(bool is_required) {
   block->m_owner = this->m_owner;
 
   for (;;) {
-    ast* stmt = this->parse_var_decl(false);
+    ast *stmt = this->parse_var_decl(false);
     if (!stmt)
       stmt = this->parse_if_or_block(false);
     if (!stmt)
@@ -373,19 +374,19 @@ block_ast* parser::parse_block(bool is_required) {
     block->m_children.push_back(std::shared_ptr<ast>(stmt));
 
     tok = &this->m_tokens[this->m_index];
-    if (tok->t_kind() == token_kind::punct_rbrace) {
+    if (tok->t_kind()==token_kind::punct_rbrace) {
       this->m_index++;
       return block;
-    } else if (tok->t_kind() == token_kind::punct_semicolon) {
+    } else if (tok->t_kind()==token_kind::punct_semicolon) {
       // FIXME: this is to avoid infinite loop when finding `;`.
       this->error(*tok, "Unexpected ';'");
     }
   }
 }
 
-if_ast* parser::parse_if(bool is_required) {
+if_ast *parser::parse_if(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::kw_if) {
+  if (tok->t_kind()!=token_kind::kw_if) {
     if (is_required) {
       this->error(*tok, "Expected if expression");
     }
@@ -408,9 +409,9 @@ if_ast* parser::parse_if(bool is_required) {
   return if_node;
 }
 
-return_ast* parser::parse_return(bool is_required) {
+return_ast *parser::parse_return(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::kw_return) {
+  if (tok->t_kind()!=token_kind::kw_return) {
     if (is_required) {
       this->error(*tok, "Expected `return`");
     }
@@ -428,7 +429,7 @@ return_ast* parser::parse_return(bool is_required) {
   return ret_node;
 }
 
-fn_def_ast* parser::parse_fn_def(bool is_required) {
+fn_def_ast *parser::parse_fn_def(bool is_required) {
   auto proto = this->parse_fn_proto(is_required);
   if (!proto) {
     return nullptr;
@@ -444,17 +445,17 @@ fn_def_ast* parser::parse_fn_def(bool is_required) {
   return fn_def;
 }
 
-fn_proto_ast* parser::parse_fn_proto(bool is_required) {
+fn_proto_ast *parser::parse_fn_proto(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
   bool is_pub = false;
 
-  if (tok->t_kind() == token_kind::kw_pub) {
+  if (tok->t_kind()==token_kind::kw_pub) {
     is_pub = true;
     this->m_index++;
     auto fn_tok = &this->m_tokens[this->m_index];
     this->m_index++;
     this->expect(*fn_tok, token_kind::kw_fn);
-  } else if (tok->t_kind() == token_kind::kw_fn) {
+  } else if (tok->t_kind()==token_kind::kw_fn) {
     this->m_index++;
   } else {
     if (is_required) {
@@ -467,10 +468,10 @@ fn_proto_ast* parser::parse_fn_proto(bool is_required) {
   bool is_variadic = false;
   auto fn_params = this->parse_fn_params(&is_variadic);
 
-  type_ast* ret_type;
+  type_ast *ret_type;
 
-  token* maybe_arrow = &this->m_tokens[this->m_index];
-  if (maybe_arrow->t_kind() == token_kind::punct_arrow) {
+  token *maybe_arrow = &this->m_tokens[this->m_index];
+  if (maybe_arrow->t_kind()==token_kind::punct_arrow) {
     this->m_index++;
     ret_type = this->parse_type();
   } else {
@@ -490,9 +491,9 @@ fn_proto_ast* parser::parse_fn_proto(bool is_required) {
   return fn_proto;
 }
 
-fn_param_ast* parser::parse_fn_param() {
+fn_param_ast *parser::parse_fn_param() {
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() == token_kind::ident) {
+  if (tok->t_kind()==token_kind::ident) {
     auto ident = this->parse_ident(true);
 
     auto colon = &this->m_tokens[this->m_index];
@@ -507,7 +508,7 @@ fn_param_ast* parser::parse_fn_param() {
     param->m_type = std::shared_ptr<type_ast>(type);
     param->m_owner = this->m_owner;
     return param;
-  } else if (tok->t_kind() == token_kind::punct_ellipsis) {
+  } else if (tok->t_kind()==token_kind::punct_ellipsis) {
     this->m_index++;
     return nullptr;
   } else {
@@ -515,7 +516,7 @@ fn_param_ast* parser::parse_fn_param() {
   }
 }
 
-fn_decl_ast* parser::parse_fn_decl() {
+fn_decl_ast *parser::parse_fn_decl() {
   auto proto = this->parse_fn_proto(true);
   auto decl = new fn_decl_ast();
   decl->m_span = proto->m_span;
@@ -524,7 +525,7 @@ fn_decl_ast* parser::parse_fn_decl() {
   return decl;
 }
 
-ast* parser::parse_if_or_block(bool is_required) {
+ast *parser::parse_if_or_block(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
 
   auto if_node = this->parse_if(false);
@@ -541,9 +542,9 @@ ast* parser::parse_if_or_block(bool is_required) {
   return nullptr;
 }
 
-ast* parser::parse_else(bool is_required) {
+ast *parser::parse_else(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::kw_else) {
+  if (tok->t_kind()!=token_kind::kw_else) {
     if (is_required) {
       this->error(*tok, "Expected `else` expression");
     }
@@ -558,7 +559,7 @@ ast* parser::parse_else(bool is_required) {
   return this->parse_block(true);
 }
 
-ast* parser::parse_return_or_assign(bool is_required) {
+ast *parser::parse_return_or_assign(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
 
   auto ret_node = this->parse_return(false);
@@ -576,13 +577,13 @@ ast* parser::parse_return_or_assign(bool is_required) {
 }
 
 // x = 1 | x = 1 + 2 | x = add(1, 2)
-ast* parser::parse_assign(bool is_required) {
+ast *parser::parse_assign(bool is_required) {
   auto lhs = this->parse_log_or(is_required);
   if (!lhs)
     return nullptr;
 
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::op_assign)
+  if (tok->t_kind()!=token_kind::op_assign)
     return lhs;
   this->m_index++;
 
@@ -599,13 +600,13 @@ ast* parser::parse_assign(bool is_required) {
 }
 
 // x || y
-ast* parser::parse_log_or(bool is_required) {
+ast *parser::parse_log_or(bool is_required) {
   auto lhs = this->parse_log_and(is_required);
   if (!lhs)
     return nullptr;
 
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::op_log_or)
+  if (tok->t_kind()!=token_kind::op_log_or)
     return lhs;
   this->m_index++;
 
@@ -622,13 +623,13 @@ ast* parser::parse_log_or(bool is_required) {
 }
 
 // x && y
-ast* parser::parse_log_and(bool is_required) {
+ast *parser::parse_log_and(bool is_required) {
   auto lhs = this->parse_comparison(is_required);
   if (!lhs)
     return nullptr;
 
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::op_log_and)
+  if (tok->t_kind()!=token_kind::op_log_and)
     return lhs;
   this->m_index++;
 
@@ -645,7 +646,7 @@ ast* parser::parse_log_and(bool is_required) {
 }
 
 // x == y | x != y | x < y | x > y | x <= y | x >= y
-ast* parser::parse_comparison(bool is_required) {
+ast *parser::parse_comparison(bool is_required) {
   auto lhs = this->parse_bit_or(is_required);
   if (!lhs)
     return nullptr;
@@ -653,26 +654,19 @@ ast* parser::parse_comparison(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
   bin_op_kind op;
   switch (tok->t_kind()) {
-    case token_kind::op_eq:
-      op = bin_op_kind::op_eq;
+    case token_kind::op_eq:op = bin_op_kind::op_eq;
       break;
-    case token_kind::op_neq:
-      op = bin_op_kind::op_neq;
+    case token_kind::op_neq:op = bin_op_kind::op_neq;
       break;
-    case token_kind::op_lt:
-      op = bin_op_kind::op_lt;
+    case token_kind::op_lt:op = bin_op_kind::op_lt;
       break;
-    case token_kind::op_gt:
-      op = bin_op_kind::op_gt;
+    case token_kind::op_gt:op = bin_op_kind::op_gt;
       break;
-    case token_kind::op_lte:
-      op = bin_op_kind::op_lte;
+    case token_kind::op_lte:op = bin_op_kind::op_lte;
       break;
-    case token_kind::op_gte:
-      op = bin_op_kind::op_gte;
+    case token_kind::op_gte:op = bin_op_kind::op_gte;
       break;
-    default:
-      return lhs;
+    default:return lhs;
   }
   this->m_index++;
 
@@ -689,13 +683,13 @@ ast* parser::parse_comparison(bool is_required) {
 }
 
 // x | y
-ast* parser::parse_bit_or(bool is_required) {
+ast *parser::parse_bit_or(bool is_required) {
   auto lhs = this->parse_bit_xor(is_required);
   if (!lhs)
     return nullptr;
 
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::op_or)
+  if (tok->t_kind()!=token_kind::op_or)
     return lhs;
   this->m_index++;
 
@@ -712,13 +706,13 @@ ast* parser::parse_bit_or(bool is_required) {
 }
 
 // x ^ y
-ast* parser::parse_bit_xor(bool is_required) {
+ast *parser::parse_bit_xor(bool is_required) {
   auto lhs = this->parse_bit_and(is_required);
   if (!lhs)
     return nullptr;
 
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::op_xor)
+  if (tok->t_kind()!=token_kind::op_xor)
     return lhs;
   this->m_index++;
 
@@ -735,13 +729,13 @@ ast* parser::parse_bit_xor(bool is_required) {
 }
 
 // x & y
-ast* parser::parse_bit_and(bool is_required) {
+ast *parser::parse_bit_and(bool is_required) {
   auto lhs = this->parse_bit_shift(is_required);
   if (!lhs)
     return nullptr;
 
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::op_and)
+  if (tok->t_kind()!=token_kind::op_and)
     return lhs;
   this->m_index++;
 
@@ -758,7 +752,7 @@ ast* parser::parse_bit_and(bool is_required) {
 }
 
 // x << y | x >> y
-ast* parser::parse_bit_shift(bool is_required) {
+ast *parser::parse_bit_shift(bool is_required) {
   auto lhs = this->parse_add(is_required);
   if (!lhs)
     return nullptr;
@@ -766,14 +760,11 @@ ast* parser::parse_bit_shift(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
   bin_op_kind op;
   switch (tok->t_kind()) {
-    case token_kind::op_shl:
-      op = bin_op_kind::op_shl;
+    case token_kind::op_shl:op = bin_op_kind::op_shl;
       break;
-    case token_kind::op_shr:
-      op = bin_op_kind::op_shr;
+    case token_kind::op_shr:op = bin_op_kind::op_shr;
       break;
-    default:
-      return lhs;
+    default:return lhs;
   }
   this->m_index++;
 
@@ -790,7 +781,7 @@ ast* parser::parse_bit_shift(bool is_required) {
 }
 
 // x + y | x - y
-ast* parser::parse_add(bool is_required) {
+ast *parser::parse_add(bool is_required) {
   auto lhs = this->parse_mul(is_required);
   if (!lhs)
     return nullptr;
@@ -798,14 +789,11 @@ ast* parser::parse_add(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
   bin_op_kind op;
   switch (tok->t_kind()) {
-    case token_kind::op_add:
-      op = bin_op_kind::op_add;
+    case token_kind::op_add:op = bin_op_kind::op_add;
       break;
-    case token_kind::op_sub:
-      op = bin_op_kind::op_sub;
+    case token_kind::op_sub:op = bin_op_kind::op_sub;
       break;
-    default:
-      return lhs;
+    default:return lhs;
   }
   this->m_index++;
 
@@ -822,7 +810,7 @@ ast* parser::parse_add(bool is_required) {
 }
 
 // x * y | x / y | x % y
-ast* parser::parse_mul(bool is_required) {
+ast *parser::parse_mul(bool is_required) {
   auto lhs = this->parse_cast(is_required);
   if (!lhs)
     return nullptr;
@@ -830,17 +818,13 @@ ast* parser::parse_mul(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
   bin_op_kind op;
   switch (tok->t_kind()) {
-    case token_kind::op_mul:
-      op = bin_op_kind::op_mul;
+    case token_kind::op_mul:op = bin_op_kind::op_mul;
       break;
-    case token_kind::op_div:
-      op = bin_op_kind::op_div;
+    case token_kind::op_div:op = bin_op_kind::op_div;
       break;
-    case token_kind::op_mod:
-      op = bin_op_kind::op_mod;
+    case token_kind::op_mod:op = bin_op_kind::op_mod;
       break;
-    default:
-      return lhs;
+    default:return lhs;
   }
   this->m_index++;
 
@@ -857,13 +841,13 @@ ast* parser::parse_mul(bool is_required) {
 }
 
 // 10 as u8 | x as u8
-ast* parser::parse_cast(bool is_required) {
+ast *parser::parse_cast(bool is_required) {
   auto lhs = this->parse_unary(is_required);
   if (!lhs)
     return nullptr;
 
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::kw_as)
+  if (tok->t_kind()!=token_kind::kw_as)
     return lhs;
   this->m_index++;
 
@@ -879,21 +863,17 @@ ast* parser::parse_cast(bool is_required) {
 }
 
 // -x | !x | ~x
-ast* parser::parse_unary(bool is_required) {
+ast *parser::parse_unary(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
   un_op_kind op;
   switch (tok->t_kind()) {
-    case token_kind::op_sub:
-      op = un_op_kind::op_neg;
+    case token_kind::op_sub:op = un_op_kind::op_neg;
       break;
-    case token_kind::op_not:
-      op = un_op_kind::op_not;
+    case token_kind::op_not:op = un_op_kind::op_not;
       break;
-    case token_kind::op_log_not:
-      op = un_op_kind::op_log_not;
+    case token_kind::op_log_not:op = un_op_kind::op_log_not;
       break;
-    default:
-      return this->parse_postfix(is_required);
+    default:return this->parse_postfix(is_required);
   }
   this->m_index++;
 
@@ -909,26 +889,44 @@ ast* parser::parse_unary(bool is_required) {
 }
 
 // x() | x[y]
-ast* parser::parse_postfix(bool is_required) {
+ast *parser::parse_postfix(bool is_required) {
   auto primary = this->parse_primary(is_required);
   if (!primary)
     return nullptr;
 
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() == token_kind::punct_lparen) {
+  if (tok->t_kind()==token_kind::punct_dot) {
+    // x.y: member access
+    this->m_index++;
+    auto access = this->parse_postfix(true);
+    // for now we only support accessing functions
+    if (access->kind()!=ast_kind::call_node) {
+      this->error(access->m_span, "expected call");
+      return nullptr;
+    }
+    auto node = new member_access_ast();
+    node->m_span = primary->m_span;
+    ast_visitor::visitor_ptr<ident_ast> v;
+    primary->accept(v);
+    node->m_name = std::shared_ptr<ident_ast>(v.ptr_);
+    ast_visitor::visitor_ptr<call_ast> v2;
+    access->accept(v2);
+    node->m_call = std::shared_ptr<call_ast>(v2.ptr_);
+    return node;
+  } else if (tok->t_kind()==token_kind::punct_lparen) {
     // x(): function call
     auto args = this->parse_call_args();
     auto call = new call_ast();
     auto ast_span = primary->m_span;
     call->m_span = ast_span;
-    if (primary->kind() != ast_kind::ident_node)
+    if (primary->kind()!=ast_kind::ident_node)
       this->error(ast_span, "expected identifier");
     ast_visitor::visitor_ptr<ident_ast> v;
     primary->accept(v);
     call->m_name = std::shared_ptr<ident_ast>(v.ptr_);
     call->m_args = std::move(args);
     return call;
-  } else if (tok->t_kind() == token_kind::punct_lbracket) {
+  } else if (tok->t_kind()==token_kind::punct_lbracket) {
     // x[y]: array index
     this->m_index++;
 
@@ -941,7 +939,7 @@ ast* parser::parse_postfix(bool is_required) {
     auto index_ast = new array_index_ast();
     index_ast->m_span = tok->t_span();
 
-    if (primary->kind() != ast_kind::ident_node)
+    if (primary->kind()!=ast_kind::ident_node)
       this->error(tok->t_span(), "expected identifier");
     ast_visitor::visitor_ptr<ident_ast> v;
     primary->accept(v);
@@ -954,25 +952,25 @@ ast* parser::parse_postfix(bool is_required) {
   }
 }
 
-ast* parser::parse_primary(bool is_required) {
+ast *parser::parse_primary(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
 
-  if (tok->t_kind() == token_kind::lit_int) {
+  if (tok->t_kind()==token_kind::lit_int) {
     return this->parse_int();
-  } else if (tok->t_kind() == token_kind::lit_string) {
+  } else if (tok->t_kind()==token_kind::lit_string) {
     return this->parse_string();
-  } else if (tok->t_kind() == token_kind::op_log_not) {
+  } else if (tok->t_kind()==token_kind::op_log_not) {
     auto no_ret = this->create_no_ret_ast(tok->t_span());
     this->m_index++;
     return no_ret;
-  } else if (tok->t_kind() == token_kind::kw_void) {
+  } else if (tok->t_kind()==token_kind::kw_void) {
     auto void_ast = this->create_void_ast(tok->t_span());
     this->m_index++;
     return void_ast;
-  } else if (tok->t_kind() == token_kind::kw_true ||
-             tok->t_kind() == token_kind::kw_false) {
+  } else if (tok->t_kind()==token_kind::kw_true ||
+      tok->t_kind()==token_kind::kw_false) {
     return this->parse_bool();
-  } else if (tok->t_kind() == token_kind::ident) {
+  } else if (tok->t_kind()==token_kind::ident) {
     return this->parse_ident(true);
   }
 
@@ -987,9 +985,9 @@ ast* parser::parse_primary(bool is_required) {
   return nullptr;
 }
 
-ast* parser::parse_group(bool is_required) {
+ast *parser::parse_group(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
-  if (tok->t_kind() != token_kind::punct_lparen) {
+  if (tok->t_kind()!=token_kind::punct_lparen) {
     if (is_required)
       this->error(tok->t_span(), "expected expression");
     return nullptr;
@@ -1005,7 +1003,7 @@ ast* parser::parse_group(bool is_required) {
   return expr;
 }
 
-ast* parser::parse_expr(bool is_required) {
+ast *parser::parse_expr(bool is_required) {
   auto tok = &this->m_tokens[this->m_index];
 
   auto if_or_block = this->parse_if_or_block(false);
@@ -1023,13 +1021,13 @@ ast* parser::parse_expr(bool is_required) {
 }
 
 std::vector<std::shared_ptr<fn_param_ast>> parser::parse_fn_params(
-    bool* is_variadic) {
+    bool *is_variadic) {
   auto lp = &this->m_tokens[this->m_index];
   this->m_index++;
   this->expect(*lp, token_kind::punct_lparen);
 
   auto maybe_rp = &this->m_tokens[this->m_index];
-  if (maybe_rp->t_kind() == token_kind::punct_rparen) {
+  if (maybe_rp->t_kind()==token_kind::punct_rparen) {
     this->m_index++;
     return {};
   }
@@ -1045,9 +1043,9 @@ std::vector<std::shared_ptr<fn_param_ast>> parser::parse_fn_params(
       *is_variadic = true;
     }
 
-    token* tok = &this->m_tokens[this->m_index];
+    token *tok = &this->m_tokens[this->m_index];
     this->m_index++;
-    if (tok->t_kind() == token_kind::punct_rparen) {
+    if (tok->t_kind()==token_kind::punct_rparen) {
       return params;
     } else if (expect_end) {
       this->error(*tok, "Expected ')' after parameter");
@@ -1063,7 +1061,7 @@ std::vector<std::shared_ptr<ast>> parser::parse_call_args() {
   this->expect(*lp, token_kind::punct_lparen);
 
   auto maybe_rp = &this->m_tokens[this->m_index];
-  if (maybe_rp->t_kind() == token_kind::punct_rparen) {
+  if (maybe_rp->t_kind()==token_kind::punct_rparen) {
     this->m_index++;
     return {};
   }
@@ -1075,7 +1073,7 @@ std::vector<std::shared_ptr<ast>> parser::parse_call_args() {
 
     auto tok = &this->m_tokens[this->m_index];
     this->m_index++;
-    if (tok->t_kind() == token_kind::punct_rparen) {
+    if (tok->t_kind()==token_kind::punct_rparen) {
       return args;
     } else {
       this->expect(*tok, token_kind::punct_comma);
@@ -1089,8 +1087,8 @@ std::vector<std::shared_ptr<ast>> parser::parse_call_args() {
 
 void parser::parse_attrs() {
   for (;;) {
-    token* tok = &this->m_tokens[this->m_index];
-    if (tok->t_kind() == token_kind::punct_at) {
+    token *tok = &this->m_tokens[this->m_index];
+    if (tok->t_kind()==token_kind::punct_at) {
       this->parse_attr();
     } else {
       return;
@@ -1099,55 +1097,73 @@ void parser::parse_attrs() {
 }
 
 void parser::parse_attr() {
-  token* tok = &this->m_tokens[this->m_index];
-  this->expect(*tok, token_kind::punct_at);
+  // attr := @[ident("arg")]
+  // | @[ident, ident("arg")]
+  // | @[ident]
+  token *at = &this->m_tokens[this->m_index];
   this->m_index++;
+  this->expect(*at, token_kind::punct_at);
 
-  token* name_tok = &this->m_tokens[this->m_index];
+  token *lb = &this->m_tokens[this->m_index];
   this->m_index++;
-  this->expect(*name_tok, token_kind::ident);
+  this->expect(*lb, token_kind::punct_lbracket);
 
-  token* lparen_tok = &this->m_tokens[this->m_index];
-  this->m_index++;
-  this->expect(*lparen_tok, token_kind::punct_lparen);
+  for (;;) {
+    token *tok = &this->m_tokens[this->m_index];
+    if (tok->t_kind()==token_kind::ident) {
+      this->m_index++;
+      auto attr = new attr_ast();
+      attr->m_span = tok->t_span();
+      attr->m_name = this->tok_value(*tok);
 
-  token* value_tok = &this->m_tokens[this->m_index];
-  this->m_index++;
-  this->expect(*value_tok, token_kind::lit_string);
+      token *maybe_lp = &this->m_tokens[this->m_index];
+      if (maybe_lp->t_kind()==token_kind::punct_lparen) {
+        this->m_index++;
+        token *str = &this->m_tokens[this->m_index];
+        this->m_index++;
+        this->expect(*str, token_kind::lit_string);
+        attr->m_arg = this->tok_value(*str);
 
-  token* rparen_tok = &this->m_tokens[this->m_index];
-  this->m_index++;
-  this->expect(*rparen_tok, token_kind::punct_rparen);
+        token *rp = &this->m_tokens[this->m_index];
+        this->m_index++;
+        this->expect(*rp, token_kind::punct_rparen);
+      }
 
-  auto attr = new attr_ast();
-  attr->m_name = this->tok_value(*name_tok);
-  attr->m_arg = this->tok_value(*value_tok);
-  attr->m_span = tok->t_span();
-  attr->m_owner = this->m_owner;
-  this->m_attrs.push_back(std::shared_ptr<attr_ast>(attr));
+      this->m_attrs.push_back(std::shared_ptr<attr_ast>(attr));
+      tok = &this->m_tokens[this->m_index];
+    }
+
+    if (tok->t_kind()==token_kind::punct_rbracket) {
+      this->m_index++;
+      return;
+    } else {
+      this->expect(*tok, token_kind::punct_comma);
+      this->m_index++;
+    }
+  }
 }
 
-void parser::error(const token& tok, const std::string& msg) {
+void parser::error(const token &tok, const std::string &msg) {
   dal::core::error e(msg, tok.t_span(), this->m_owner->get_path(),
                      this->m_source);
   e.raise(true);
   unreachable();
 }
 
-void parser::error(const span& span, const std::string& msg) {
+void parser::error(const span &span, const std::string &msg) {
   dal::core::error e(msg, span, this->m_owner->get_path(), this->m_source);
   e.raise(true);
   unreachable();
 }
 
-void parser::expect(const token& tok, token_kind kind) {
-  if (tok.t_kind() != kind) {
+void parser::expect(const token &tok, token_kind kind) {
+  if (tok.t_kind()!=kind) {
     token dummy(kind, tok.t_span());
     this->error(tok, "Expected " + dummy.t_kind_str());
   }
 }
 
-std::string parser::tok_value(const token& tok) const {
+std::string parser::tok_value(const token &tok) const {
   return this->m_source.substr(tok.t_span().start_pos(), tok.t_span().len());
 }
 

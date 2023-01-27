@@ -79,4 +79,44 @@ void split_path(const std::string &path, std::string &dir, std::string &file, st
   file = p.filename();
 }
 
+std::string join_path(const std::string &dir, const std::string &file, std::error_code &ec) {
+  auto abs_dir = to_abs_path(dir, ec);
+  if (ec) {
+    return "";
+  }
+
+  if (!std::filesystem::exists(abs_dir)) {
+    ec = std::error_code(ENOENT, std::system_category());
+    return "";
+  }
+
+  if (!std::filesystem::is_directory(abs_dir)) {
+    ec = std::error_code(ENOTDIR, std::system_category());
+    return "";
+  }
+
+  auto p = std::filesystem::path(abs_dir);
+  p /= file;
+  return p.string();
+}
+
+bool is_file(const std::string &path, std::error_code &ec) {
+  auto abs = to_abs_path(path, ec);
+  if (ec) {
+    return false;
+  }
+
+  if (!std::filesystem::exists(abs)) {
+    ec = std::error_code(ENOENT, std::system_category());
+    return false;
+  }
+
+  if (!std::filesystem::is_regular_file(abs)) {
+    ec = std::error_code(EISDIR, std::system_category());
+    return false;
+  }
+
+  return true;
+}
+
 } // namespace dal::core::os

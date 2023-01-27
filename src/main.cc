@@ -30,37 +30,33 @@ int build_handler(context ctx) {
   }
 
   gen.set_root_dir(dir);
-  gen.set_build_type(ctx.get_bool("release") ? core::build_type::release
-                                             : core::build_type::debug);
-  if (ctx.get_bool("strip")) {
-    gen.strip_debug_symbols();
-  }
-  if (ctx.get_bool("static")) {
-    gen.link_static();
-  }
+  gen.set_build_type(ctx.get_bool("release") ? core::codegen_build_type::release
+                                             : core::codegen_build_type::debug);
+  gen.set_out_path(ctx.get_string("output"));
+  gen.set_is_strip_symbols(ctx.get_bool("strip"));
+  gen.set_is_statically_linked(ctx.get_bool("static"));
 
   auto out_type = ctx.get_string("type");
   if (out_type == "exe") {
-    gen.set_out_type(core::out_type::exe);
+    gen.set_out_type(core::codegen_out_type::executable);
   } else if (out_type == "lib") {
-    gen.set_out_type(core::out_type::lib);
+    gen.set_out_type(core::codegen_out_type::library);
   } else if (out_type == "obj") {
-    gen.set_out_type(core::out_type::obj);
+    gen.set_out_type(core::codegen_out_type::object);
   } else {
     fmt::panic("{}: invalid output type '{}'", fmt::red_bold("error"),
                out_type);
   }
-
-  gen.set_out_path(ctx.get_string("output"));
-  if (ctx.get_bool("verbose")) {
-    gen.verbose();
-  }
+  gen.set_is_verbose(ctx.get_bool("verbose"));
 
   auto abs_path = core::os::to_abs_path(in_file, ec);
   if (ec) {
     fmt::panic("{}: {}", fmt::red_bold("error"), ec.message());
   }
-  return gen.gen(abs_path);
+
+  gen.generate(abs_path);
+
+  return 0;
 }
 
 int main(int argc, char** argv) {

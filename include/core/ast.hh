@@ -17,6 +17,7 @@
 namespace dal::core {
 
 class import_table;
+class codegen_node;
 class ast;
 
 namespace ast_visitor {
@@ -43,6 +44,7 @@ enum class ast_kind {
   ident_node,
   call_node,
   array_index_node,
+  member_access_node,
   void_node,
   if_node,
   string_node,
@@ -55,12 +57,13 @@ class ast {
   ast() = default;
   virtual ~ast() = default;
 
-  virtual void accept(ast_visitor::visitor& v) = 0;
+  virtual void accept(ast_visitor::visitor &v) = 0;
   [[nodiscard]] virtual std::string to_string(int indent) const = 0;
   [[nodiscard]] virtual ast_kind kind() const = 0;
 
   span m_span;
   std::weak_ptr<import_table> m_owner;
+  std::shared_ptr<codegen_node> m_cg_node;
 };
 
 class string_ast : public ast {
@@ -68,7 +71,7 @@ class string_ast : public ast {
   string_ast() = default;
   ~string_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -81,7 +84,7 @@ class int_ast : public ast {
   int_ast() = default;
   ~int_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -94,7 +97,7 @@ class bool_ast : public ast {
   bool_ast() = default;
   ~bool_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -107,7 +110,7 @@ class ident_ast : public ast {
   ident_ast() = default;
   ~ident_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -120,7 +123,7 @@ class void_ast : public ast {
   void_ast() = default;
   ~void_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -132,7 +135,7 @@ class no_ret_ast : public ast {
   no_ret_ast() = default;
   ~no_ret_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -144,7 +147,7 @@ class attr_ast : public ast {
   attr_ast() = default;
   ~attr_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -158,11 +161,12 @@ class root_ast : public ast {
   root_ast() = default;
   ~root_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
   ast_kind m_kind = ast_kind::root_node;
+  std::shared_ptr<ident_ast> m_module_name;
   std::vector<std::shared_ptr<ast>> m_children;
 };
 
@@ -171,7 +175,7 @@ class import_ast : public ast {
   import_ast() = default;
   ~import_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -190,7 +194,7 @@ class type_ast : public ast {
   type_ast() = default;
   ~type_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -209,7 +213,7 @@ class fn_param_ast : public ast {
   fn_param_ast() = default;
   ~fn_param_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -223,7 +227,7 @@ class fn_proto_ast : public ast {
   fn_proto_ast() = default;
   ~fn_proto_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -241,7 +245,7 @@ class fn_decl_ast : public ast {
   fn_decl_ast() = default;
   ~fn_decl_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -254,7 +258,7 @@ class block_ast : public ast {
   block_ast() = default;
   ~block_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -267,7 +271,7 @@ class fn_def_ast : public ast {
   fn_def_ast() = default;
   ~fn_def_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -281,7 +285,7 @@ class extern_ast : public ast {
   extern_ast() = default;
   ~extern_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -295,7 +299,7 @@ class var_decl_ast : public ast {
   var_decl_ast() = default;
   ~var_decl_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -312,7 +316,7 @@ class return_ast : public ast {
   return_ast() = default;
   ~return_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -325,7 +329,7 @@ class call_ast : public ast {
   call_ast() = default;
   ~call_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -339,7 +343,7 @@ class if_ast : public ast {
   if_ast() = default;
   ~if_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -354,7 +358,7 @@ class cast_ast : public ast {
   cast_ast() = default;
   ~cast_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -390,7 +394,7 @@ class bin_op_ast : public ast {
   bin_op_ast() = default;
   ~bin_op_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -411,7 +415,7 @@ class un_op_ast : public ast {
   un_op_ast() = default;
   ~un_op_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
@@ -425,13 +429,28 @@ class array_index_ast : public ast {
   array_index_ast() = default;
   ~array_index_ast() override = default;
 
-  void accept(ast_visitor::visitor& v) override;
+  void accept(ast_visitor::visitor &v) override;
   [[nodiscard]] std::string to_string(int indent) const override;
   [[nodiscard]] ast_kind kind() const override;
 
   ast_kind m_kind = ast_kind::array_index_node;
   std::shared_ptr<ident_ast> m_array;
   std::shared_ptr<ast> m_index;
+};
+
+class member_access_ast : public ast {
+ public:
+  member_access_ast() = default;
+  ~member_access_ast() override = default;
+
+  void accept(ast_visitor::visitor &v) override;
+  [[nodiscard]] std::string to_string(int indent) const override;
+  [[nodiscard]] ast_kind kind() const override;
+
+  ast_kind m_kind = ast_kind::member_access_node;
+  // member access can be either a variable or a function, and can be from a struct or a module
+  std::shared_ptr<ident_ast> m_name;
+  std::shared_ptr<call_ast> m_call;
 };
 
 }  // namespace dal::core

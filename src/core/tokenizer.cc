@@ -229,8 +229,10 @@ token tokenizer::next_token() {
         t_kind = token_kind::kw_false;
       } else if (raw == "extern") {
         t_kind = token_kind::kw_extern;
-      } else if (raw == "import_node") {
+      } else if (raw == "import") {
         t_kind = token_kind::kw_import;
+      } else if (raw == "module") {
+        t_kind = token_kind::kw_module;
       } else if (raw == "as") {
         t_kind = token_kind::kw_as;
       } else if (raw == "void") {
