@@ -1,0 +1,15 @@
+module main
+
+import "math"
+
+@[link("c")]
+extern {
+    pub fn printf(fmt: *const u8, ...) -> i32
+}
+
+pub fn main() {
+    let x = 10
+    let y = 20
+    let z = math.add(x, y)
+    printf("Hello, world! %d + %d = %d\0", x, y, z)
+}
